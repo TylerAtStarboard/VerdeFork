@@ -13,6 +13,16 @@ local UNSAFE_PROPERTIES = {
 	LinkedSource = true,
 }
 
+local function ReadableFilter(property)
+	if not property.Security then
+		return true
+	end
+	if typeof(property.Security) == "string" then
+		return property.Security == "None"
+	end
+	return property.Security.Read == "None"
+end
+
 return function(operation)
 	local nodeId = operation.nodeId
 	local instance = InstanceMap[nodeId]
@@ -28,8 +38,7 @@ return function(operation)
 		return false
 	end
 
-	local properties =
-		class:GetProperties(Filter.Invert(Filter.Deprecated), Filter.HasSecurity("None"), Filter.Scriptable)
+	local properties = class:GetProperties(Filter.Invert(Filter.Deprecated), ReadableFilter, Filter.Scriptable)
 
 	local safeProperties = {}
 	for propertyName, property in properties do
@@ -175,6 +184,14 @@ return function(operation)
 			end
 		end
 
+		local isReadOnly = false
+		if property.Tags then
+			isReadOnly = table.find(property.Tags, "ReadOnly") ~= nil
+		end
+		if not isReadOnly and property.Security and property.Security.Write ~= "None" then
+			isReadOnly = true
+		end
+
 		table.insert(safeProperties, {
 			name = property.Name,
 			type = propType,
@@ -186,6 +203,7 @@ return function(operation)
 			referencedInstanceId = referencedInstanceId,
 			referencedInstanceName = referencedInstanceName,
 			referencedInstanceClass = referencedInstanceClass,
+			isReadOnly = isReadOnly,
 		})
 	end
 

@@ -151,6 +151,19 @@ body {
 	background: var(--vscode-list-hoverBackground);
 }
 
+.property-row.readonly {
+	opacity: 0.6;
+}
+
+.property-row.readonly .property-name {
+	color: var(--vscode-descriptionForeground);
+}
+
+.readonly-value {
+	color: var(--vscode-descriptionForeground);
+	cursor: default;
+}
+
 .property-name {
 	overflow: hidden;
 	white-space: nowrap;
@@ -939,4 +952,115 @@ body {
 .attribute-context-item:hover {
 	background: var(--vscode-menu-selectionBackground) !important;
 	color: var(--vscode-menu-selectionForeground) !important;
+}
+
+.audio-preview-row {
+	border-left: 2px solid var(--vscode-panel-border);
+	margin-left: 12px;
+}
+
+.audio-preview-row .property-name {
+	padding-left: 12px;
+	color: var(--vscode-descriptionForeground);
+	font-size: 11px;
+}
+
+.audio-controls {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	width: 100%;
+	padding-right: 4px;
+}
+
+.audio-play-button {
+	width: 16px;
+	height: 16px;
+	min-width: 16px;
+	border: none;
+	background: transparent;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 0;
+	position: relative;
+}
+
+.audio-play-button::before {
+	content: "";
+	width: 0;
+	height: 0;
+	border-left: 10px solid #4CAF50;
+	border-top: 6px solid transparent;
+	border-bottom: 6px solid transparent;
+}
+
+.audio-play-button:hover::before {
+	border-left-color: #66BB6A;
+}
+
+.audio-play-button.playing::before {
+	border: none;
+	width: 8px;
+	height: 10px;
+	background: linear-gradient(to right, 
+		#C8E64C 0%, #C8E64C 35%, 
+		transparent 35%, transparent 65%, 
+		#C8E64C 65%, #C8E64C 100%
+	);
+}
+
+.audio-play-button.playing:hover::before {
+	background: linear-gradient(to right, 
+		#D4ED6A 0%, #D4ED6A 35%, 
+		transparent 35%, transparent 65%, 
+		#D4ED6A 65%, #D4ED6A 100%
+	);
+}
+
+.audio-scrubber-container {
+	flex: 1;
+	display: flex;
+	align-items: center;
+	min-width: 0;
+}
+
+.audio-scrubber-track {
+	position: relative;
+	flex: 1;
+	height: 4px;
+	background: #3a3a3a;
+	border-radius: 2px;
+	cursor: pointer;
+}
+
+.audio-scrubber-fill {
+	position: absolute;
+	top: 0;
+	left: 0;
+	height: 100%;
+	background: #5a5a5a;
+	border-radius: 2px;
+	pointer-events: none;
+}
+
+.audio-scrubber-handle {
+	position: absolute;
+	top: 50%;
+	width: 10px;
+	height: 10px;
+	background: #d4d4d4;
+	border-radius: 50%;
+	transform: translate(-50%, -50%);
+	cursor: grab;
+	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+.audio-scrubber-handle:hover {
+	background: #e8e8e8;
+}
+
+.audio-scrubber-handle:active {
+	cursor: grabbing;
 }

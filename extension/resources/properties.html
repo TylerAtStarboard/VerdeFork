@@ -80,6 +80,9 @@
         let showAttributeModal = false;
         let currentContextMenu = null;
         let renamingAttribute = null;
+        let currentNodeClassName = null;
+        let audioPlaying = false;
+        let audioScrubbing = false;
 
         const container = document.getElementById("properties-container");
         [[scriptElements]]
@@ -100,6 +103,14 @@
                     const titleElement = document.getElementById('properties-title');
                     if (titleElement) {
                         titleElement.textContent = `Properties - ${message.nodeClassName} - ${message.nodeName}`;
+                    }
+                    currentNodeClassName = message.nodeClassName;
+                }
+
+                if (currentNodeClassName === "Sound") {
+                    const playingProp = allProperties.find(p => p.name === "Playing");
+                    if (playingProp) {
+                        audioPlaying = !!playingProp.value;
                     }
                 }
             } else {
@@ -205,7 +216,100 @@
                 group.appendChild(mainRow);
             }
 
+            if (currentNodeClassName === "Sound" && (prop.name === "AudioContent" || prop.name === "SoundId")) {
+                const previewRow = createAudioPreviewRow(prop);
+                group.appendChild(previewRow);
+            }
+
             return group;
+        }
+
+        function createAudioPreviewRow(prop) {
+            const row = document.createElement("div");
+            row.className = "property-row property-subrow audio-preview-row";
+
+            const nameCell = document.createElement("div");
+            nameCell.className = "property-name";
+            nameCell.textContent = "Preview";
+            row.appendChild(nameCell);
+
+            const valueCell = document.createElement("div");
+            valueCell.className = "property-value audio-controls";
+
+            const playBtn = document.createElement("button");
+            playBtn.className = "audio-play-button" + (audioPlaying ? " playing" : "");
+            playBtn.title = audioPlaying ? "Stop" : "Play";
+            playBtn.addEventListener("click", () => {
+                if (audioPlaying) {
+                    stopSound();
+                } else {
+                    playSound();
+                }
+            });
+            valueCell.appendChild(playBtn);
+
+            const scrubberContainer = document.createElement("div");
+            scrubberContainer.className = "audio-scrubber-container";
+
+            const timePositionProp = allProperties.find(p => p.name === "TimePosition");
+            const timeLengthProp = allProperties.find(p => p.name === "TimeLength");
+            const timePosition = timePositionProp?.value || 0;
+            const timeLength = timeLengthProp?.value || 0;
+            const progress = timeLength > 0 ? (timePosition / timeLength) * 100 : 0;
+
+            const scrubberTrack = document.createElement("div");
+            scrubberTrack.className = "audio-scrubber-track";
+
+            const scrubberFill = document.createElement("div");
+            scrubberFill.className = "audio-scrubber-fill";
+            scrubberFill.style.width = `${Math.min(100, Math.max(0, progress))}%`;
+            scrubberTrack.appendChild(scrubberFill);
+
+            const scrubberHandle = document.createElement("div");
+            scrubberHandle.className = "audio-scrubber-handle";
+            scrubberHandle.style.left = `${Math.min(100, Math.max(0, progress))}%`;
+            scrubberTrack.appendChild(scrubberHandle);
+
+            let isDragging = false;
+
+            const updateScrubPosition = (e) => {
+                const rect = scrubberTrack.getBoundingClientRect();
+                const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+                const percent = x / rect.width;
+                const newTime = percent * timeLength;
+                
+                scrubberFill.style.width = `${percent * 100}%`;
+                scrubberHandle.style.left = `${percent * 100}%`;
+                
+                return newTime;
+            };
+
+            scrubberTrack.addEventListener("mousedown", (e) => {
+                isDragging = true;
+                audioScrubbing = true;
+                const newTime = updateScrubPosition(e);
+                setSoundTimePosition(newTime);
+            });
+
+            document.addEventListener("mousemove", (e) => {
+                if (isDragging) {
+                    const newTime = updateScrubPosition(e);
+                    setSoundTimePosition(newTime);
+                }
+            });
+
+            document.addEventListener("mouseup", () => {
+                if (isDragging) {
+                    isDragging = false;
+                    audioScrubbing = false;
+                }
+            });
+
+            scrubberContainer.appendChild(scrubberTrack);
+            valueCell.appendChild(scrubberContainer);
+
+            row.appendChild(valueCell);
+            return row;
         }
 
         function isMultiValueProperty(type) {
@@ -216,7 +320,7 @@
 
         function createRow(prop, isExpandable, isExpanded) {
             const row = document.createElement("div");
-            row.className = "property-row";
+            row.className = "property-row" + (prop.isReadOnly ? " readonly" : "");
 
             const nameCell = document.createElement("div");
             nameCell.className = "property-name";
@@ -316,7 +420,7 @@
 
         function createSubRow(prop, subName, currentValue, updateFn) {
             const row = document.createElement("div");
-            row.className = "property-row property-subrow";
+            row.className = "property-row property-subrow" + (prop.isReadOnly ? " readonly" : "");
 
             const name = document.createElement("div");
             name.className = "property-name";
@@ -326,20 +430,28 @@
             const value = document.createElement("div");
             value.className = "property-value";
 
-            const input = document.createElement("input");
-            input.type = "text";
-            input.className = "value-input";
-            input.value = currentValue ?? "0";
+            if (prop.isReadOnly) {
+                const display = document.createElement("div");
+                display.className = "value-display readonly-value";
+                display.textContent = currentValue ?? "0";
+                value.appendChild(display);
+            } else {
+                const input = document.createElement("input");
+                input.type = "text";
+                input.className = "value-input";
+                input.value = currentValue ?? "0";
 
-            input.addEventListener("change", () => {
-                const raw = (input.value || "").trim();
-                const numericValue = parseFloat(raw);
-                if (!Number.isFinite(numericValue)) return;
-                const newValue = updateFn(numericValue);
-                postSetProperty(prop.name, newValue);
-            });
+                input.addEventListener("change", () => {
+                    const raw = (input.value || "").trim();
+                    const numericValue = parseFloat(raw);
+                    if (!Number.isFinite(numericValue)) return;
+                    const newValue = updateFn(numericValue);
+                    postSetProperty(prop.name, newValue);
+                });
 
-            value.appendChild(input);
+                value.appendChild(input);
+            }
+
             row.appendChild(value);
 
             return row;
@@ -362,7 +474,91 @@
             });
         }
 
+        function playSound() {
+            audioPlaying = true;
+            vscode.postMessage({ type: "playSound" });
+            render();
+        }
+
+        function stopSound() {
+            audioPlaying = false;
+            vscode.postMessage({ type: "stopSound" });
+            render();
+        }
+
+        function setSoundTimePosition(timePosition) {
+            vscode.postMessage({ type: "setSoundTimePosition", timePosition });
+        }
+
+        function formatTime(seconds) {
+            if (!seconds || !isFinite(seconds)) return "0:00";
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        function formatPropertyValue(prop) {
+            if (prop.value === null || prop.value === undefined) {
+                return "";
+            }
+            
+            if (prop.isEnum && prop.value && prop.value.Name) {
+                return prop.value.Name;
+            }
+
+            if (typeof prop.value === "boolean") {
+                return prop.value ? "true" : "false";
+            }
+
+            if (typeof prop.value === "object") {
+                if (prop.value.X !== undefined && prop.value.Y !== undefined && prop.value.Z !== undefined) {
+                    return `${prop.value.X?.toFixed?.(3) ?? prop.value.X}, ${prop.value.Y?.toFixed?.(3) ?? prop.value.Y}, ${prop.value.Z?.toFixed?.(3) ?? prop.value.Z}`;
+                }
+                if (prop.value.X !== undefined && prop.value.Y !== undefined) {
+                    if (typeof prop.value.X === "object") {
+                        return `{${prop.value.X.Scale}, ${prop.value.X.Offset}}, {${prop.value.Y.Scale}, ${prop.value.Y.Offset}}`;
+                    }
+                    return `${prop.value.X?.toFixed?.(3) ?? prop.value.X}, ${prop.value.Y?.toFixed?.(3) ?? prop.value.Y}`;
+                }
+                if (prop.value.R !== undefined && prop.value.G !== undefined && prop.value.B !== undefined) {
+                    const r = Math.round(prop.value.R * 255);
+                    const g = Math.round(prop.value.G * 255);
+                    const b = Math.round(prop.value.B * 255);
+                    return `[${r}, ${g}, ${b}]`;
+                }
+                if (prop.value.Min !== undefined && prop.value.Max !== undefined) {
+                    return `${prop.value.Min} - ${prop.value.Max}`;
+                }
+                if (prop.value.Position && prop.value.Rotation) {
+                    const pos = prop.value.Position;
+                    return `${pos.X?.toFixed(3)}, ${pos.Y?.toFixed(3)}, ${pos.Z?.toFixed(3)}`;
+                }
+                if (prop.value.Keypoints) {
+                    return `${prop.value.Keypoints.length} keypoint${prop.value.Keypoints.length !== 1 ? 's' : ''}`;
+                }
+                return JSON.stringify(prop.value);
+            }
+
+            return String(prop.value);
+        }
+
         function createEditor(prop, showCompact) {
+            if (prop && prop.isReadOnly) {
+                if (prop.type === "bool") {
+                    const checkbox = document.createElement("input");
+                    checkbox.type = "checkbox";
+                    checkbox.className = "value-checkbox";
+                    checkbox.checked = !!prop.value;
+                    checkbox.disabled = true;
+                    return checkbox;
+                }
+
+                const display = document.createElement("div");
+                display.className = "value-display readonly-value";
+                display.textContent = formatPropertyValue(prop);
+                return display;
+            }
+
             if (prop && prop.isInstanceReference) {
                 const wrapper = document.createElement("div");
                 wrapper.className = "instance-link";
@@ -1847,8 +2043,48 @@
             const message = event.data;
             if (message && message.type === "updateProperties") {
                 updateProperties(message);
+            } else if (message && message.type === "soundPlaybackUpdate") {
+                handleSoundPlaybackUpdate(message);
             }
         });
+
+        window.addEventListener("keydown", (event) => {
+            if ((event.ctrlKey || event.metaKey) && event.key === "z" && !event.shiftKey) {
+                event.preventDefault();
+                vscode.postMessage({ type: "undo" });
+            } else if ((event.ctrlKey || event.metaKey) && event.key === "z" && event.shiftKey) {
+                event.preventDefault();
+                vscode.postMessage({ type: "redo" });
+            } else if ((event.ctrlKey || event.metaKey) && event.key === "y") {
+                event.preventDefault();
+                vscode.postMessage({ type: "redo" });
+            }
+        });
+
+        function handleSoundPlaybackUpdate(info) {
+            audioPlaying = info.playing;
+
+            if (!audioScrubbing) {
+                const scrubberFill = document.querySelector('.audio-scrubber-fill');
+                const scrubberHandle = document.querySelector('.audio-scrubber-handle');
+                const playBtn = document.querySelector('.audio-play-button');
+
+                if (scrubberFill && scrubberHandle && info.timeLength > 0) {
+                    const progress = (info.timePosition / info.timeLength) * 100;
+                    scrubberFill.style.width = `${Math.min(100, Math.max(0, progress))}%`;
+                    scrubberHandle.style.left = `${Math.min(100, Math.max(0, progress))}%`;
+                }
+
+                if (playBtn) {
+                    playBtn.title = info.playing ? "Stop" : "Play";
+                    if (info.playing) {
+                        playBtn.classList.add("playing");
+                    } else {
+                        playBtn.classList.remove("playing");
+                    }
+                }
+            }
+        }
     </script>
 </body>
 

@@ -14,6 +14,7 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
 	private currentNodeName: string | null = null;
 	private currentNodeClassName: string | null = null;
 	private isUsingSeparatePanel: boolean = false;
+	private soundPollingInterval: NodeJS.Timeout | null = null;
 
 	constructor(backend: VerdeBackend, private readonly extensionUri: vscode.Uri) {
 		this.backend = backend;
@@ -113,6 +114,41 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
 		}
 	}
 
+	private startSoundPolling(): void {
+		this.stopSoundPolling();
+
+		this.soundPollingInterval = setInterval(async () => {
+			try {
+				const playbackInfo = await this.backend.getSoundPlaybackInfo();
+				this.sendToWebview({
+					type: "soundPlaybackUpdate",
+					...playbackInfo,
+				});
+
+				if (!playbackInfo.playing) {
+					this.stopSoundPolling();
+				}
+			} catch {
+				this.stopSoundPolling();
+			}
+		}, 100);
+	}
+
+	private stopSoundPolling(): void {
+		if (this.soundPollingInterval) {
+			clearInterval(this.soundPollingInterval);
+			this.soundPollingInterval = null;
+		}
+	}
+
+	private sendToWebview(message: any): void {
+		if (this.isUsingSeparatePanel && this.separatePanel) {
+			this.separatePanel.webview.postMessage(message);
+		} else if (this.webviewView) {
+			this.webviewView.webview.postMessage(message);
+		}
+	}
+
 	private async handleMessage(message: any): Promise<void> {
 		if (message.type === "navigateToInstance") {
 			vscode.commands.executeCommand("verde.navigateToInstance", message.instanceId);
@@ -156,6 +192,28 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
 
 				case "renameAttribute":
 					await this.backend.renameAttribute(this.currentNodeId, message.oldName, message.newName);
+					break;
+
+				case "playSound":
+					await this.backend.playSound(this.currentNodeId);
+					this.startSoundPolling();
+					break;
+
+				case "stopSound":
+					await this.backend.stopSound(this.currentNodeId);
+					this.stopSoundPolling();
+					break;
+
+				case "setSoundTimePosition":
+					await this.backend.setSoundTimePosition(this.currentNodeId, message.timePosition);
+					break;
+
+				case "undo":
+					await this.backend.undo();
+					break;
+
+				case "redo":
+					await this.backend.redo();
 					break;
 
 				default:
@@ -252,6 +310,28 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
 
 					case "renameAttribute":
 						await this.backend.renameAttribute(this.currentNodeId, message.oldName, message.newName);
+						break;
+
+					case "playSound":
+						await this.backend.playSound(this.currentNodeId);
+						this.startSoundPolling();
+						break;
+
+					case "stopSound":
+						await this.backend.stopSound(this.currentNodeId);
+						this.stopSoundPolling();
+						break;
+
+					case "setSoundTimePosition":
+						await this.backend.setSoundTimePosition(this.currentNodeId, message.timePosition);
+						break;
+
+					case "undo":
+						await this.backend.undo();
+						break;
+
+					case "redo":
+						await this.backend.redo();
 						break;
 
 					default:

@@ -19,6 +19,12 @@ export type Operation =
     | { type: "set_attribute"; nodeId: string; attributeName: string; attributeValue: any }
     | { type: "remove_attribute"; nodeId: string; attributeName: string }
     | { type: "rename_attribute"; nodeId: string; oldName: string; newName: string }
+    | { type: "play_sound"; nodeId: string }
+    | { type: "stop_sound"; nodeId: string }
+    | { type: "set_sound_time_position"; nodeId: string; timePosition: number }
+    | { type: "get_sound_playback_info" }
+    | { type: "undo" }
+    | { type: "redo" }
 
 export type OperationResult =
     | { success: true; data?: string | PropertiesData | boolean }
@@ -35,6 +41,7 @@ export type PropertyInfo = {
     referencedInstanceId?: string;
     referencedInstanceName?: string;
     referencedInstanceClass?: string;
+    isReadOnly?: boolean;
 };
 
 export type AttributeInfo = {
@@ -47,6 +54,13 @@ export type PropertiesData = {
     properties: PropertyInfo[];
     tags: string[];
     attributes: AttributeInfo[];
+};
+
+export type SoundPlaybackInfo = {
+    playing: boolean;
+    timePosition: number;
+    timeLength: number;
+    sourceId: string | null;
 };
 
 export type TextRange = {
@@ -274,6 +288,43 @@ export class VerdeBackend {
         if (!result.success) {
             throw new Error(result.error);
         }
+    }
+
+    public async playSound(nodeId: string): Promise<void> {
+        const result = await this.sendOperation({ type: "play_sound", nodeId });
+        if (!result.success) {
+            throw new Error(result.error);
+        }
+    }
+
+    public async stopSound(nodeId: string): Promise<void> {
+        const result = await this.sendOperation({ type: "stop_sound", nodeId });
+        if (!result.success) {
+            throw new Error(result.error);
+        }
+    }
+
+    public async setSoundTimePosition(nodeId: string, timePosition: number): Promise<void> {
+        const result = await this.sendOperation({ type: "set_sound_time_position", nodeId, timePosition });
+        if (!result.success) {
+            throw new Error(result.error);
+        }
+    }
+
+    public async getSoundPlaybackInfo(): Promise<SoundPlaybackInfo> {
+        const result = await this.sendOperation({ type: "get_sound_playback_info" });
+        if (result.success && result.data) {
+            return result.data as unknown as SoundPlaybackInfo;
+        }
+        return { playing: false, timePosition: 0, timeLength: 0, sourceId: null };
+    }
+
+    public async undo(): Promise<void> {
+        await this.sendOperation({ type: "undo" });
+    }
+
+    public async redo(): Promise<void> {
+        await this.sendOperation({ type: "redo" });
     }
 
     public async waitForNextSnapshot(): Promise<Snapshot> {
