@@ -50,7 +50,7 @@ return function(operation)
 			local rot = propertyValue.Rotation
 			if pos.X and pos.Y and pos.Z then
 				instance[propertyName] = CFrame.new(pos.X, pos.Y, pos.Z)
-					* CFrame.fromOrientation(math.rad(rot.X or 0), math.rad(rot.Y or 0), math.rad(rot.Z or 0))
+					* CFrame.Angles(rot.X or 0, rot.Y or 0, rot.Z or 0)
 			end
 		elseif
 			typeof(propertyValue) == "table"

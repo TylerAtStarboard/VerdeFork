@@ -18,7 +18,7 @@ local function ReadableFilter(property)
 		return true
 	end
 	if typeof(property.Security) == "string" then
-		return property.Security == "None"
+		return property.Security == "None" or property.Security == "PluginSecurity"
 	end
 	return property.Security.Read == "None"
 end
@@ -38,7 +38,7 @@ return function(operation)
 		return false
 	end
 
-	local properties = class:GetProperties(Filter.Invert(Filter.Deprecated), ReadableFilter, Filter.Scriptable)
+	local properties = class:GetProperties(Filter.Invert(Filter.Deprecated))
 
 	local safeProperties = {}
 	for propertyName, property in properties do
@@ -47,9 +47,15 @@ return function(operation)
 		end
 
 		local propType = property.ValueType and property.ValueType.Name or "Unknown"
-		local propValue = instance[property.Name]
 
-		-- Handle enum values specially
+		local success, propValue = pcall(function()
+			return instance[property.Name]
+		end)
+
+		if not success then
+			continue
+		end
+
 		if property.ValueType and property.ValueType.Category == "Enum" and typeof(propValue) == "EnumItem" then
 			propValue = {
 				Value = propValue.Value,
@@ -58,7 +64,6 @@ return function(operation)
 		end
 
 		if typeof(propValue) == "CFrame" then
-			local rx, ry, rz = propValue:ToOrientation()
 			propValue = {
 				Position = {
 					X = math.round(propValue.Position.X * 1000) / 1000,
@@ -66,9 +71,9 @@ return function(operation)
 					Z = math.round(propValue.Position.Z * 1000) / 1000,
 				},
 				Rotation = {
-					X = math.round(math.deg(rx) * 1000) / 1000,
-					Y = math.round(math.deg(ry) * 1000) / 1000,
-					Z = math.round(math.deg(rz) * 1000) / 1000,
+					X = propValue.LookVector.X,
+					Y = propValue.LookVector.Y,
+					Z = propValue.LookVector.Z,
 				},
 			}
 		elseif typeof(propValue) == "Vector3" then
@@ -189,7 +194,13 @@ return function(operation)
 		if property.Tags then
 			isReadOnly = table.find(property.Tags, "ReadOnly") ~= nil
 		end
-		if not isReadOnly and property.Security and property.Security.Write ~= "None" then
+
+		if
+			not isReadOnly
+			and property.Security
+			and property.Security.Write ~= "None"
+			and property.Security.Write ~= "PluginSecurity"
+		then
 			isReadOnly = true
 		end
 
