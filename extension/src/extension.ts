@@ -5,10 +5,16 @@ import { PropertiesViewProvider } from "./propertiesViewProvider";
 import { ROBLOX_CLASS_NAMES } from "./robloxClasses";
 import { SourcemapParser } from "./sourcemapParser";
 import { isScriptClass } from "./utils";
+import { InstanceHistory, HistoryEntry } from "./instanceHistory";
+
+import * as fzy from "fzy.js";
 
 let backend: VerdeBackend | null = null;
 let sourcemapParser: SourcemapParser;
 let propertiesViewProvider: PropertiesViewProvider;
+let instanceHistory: InstanceHistory;
+let cachedQuickPickItems: (vscode.QuickPickItem & { node: Node })[] = [];
+let cachedSearchStrings: string[] = [];
 
 let scriptActivationTracker: { [nodeId: string]: { count: number, timeout: NodeJS.Timeout | null } } = {};
 
@@ -22,6 +28,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	const explorerProvider = new RobloxExplorerProvider(context.extensionUri);
 	const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri || context.extensionUri;
 	sourcemapParser = new SourcemapParser(workspaceRoot);
+	instanceHistory = new InstanceHistory(10);
 
 	const explorerView = vscode.window.createTreeView("verde.view", {
 		treeDataProvider: explorerProvider,
@@ -32,10 +39,40 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	context.subscriptions.push(explorerView);
 
+	const rebuildQuickPickCache = () => {
+		const allNodes = explorerProvider.getAllNodes();
+		cachedSearchStrings = [];
+		cachedQuickPickItems = allNodes.map((node: Node) => {
+			const path: string[] = [node.name];
+			let current = node;
+			while (current.parentId) {
+				const parent = explorerProvider.getNodeById(current.parentId);
+				if (!parent) { break; }
+				path.unshift(parent.name);
+				current = parent;
+			}
+			const pathString = path.join('.');
+			cachedSearchStrings.push(pathString);
+			return {
+				label: node.name,
+				description: node.className,
+				detail: pathString,
+				iconPath: vscode.Uri.joinPath(context.extensionUri, "assets", `${node.className}.png`),
+				alwaysShow: true,
+				node
+			};
+		});
+	};
+
 	backend = new VerdeBackend(outputChannel, statusBarItem, (snapshot) => {
 		explorerProvider.setSnapshot(snapshot);
+		instanceHistory.updateNodeReferences((id: string) => explorerProvider.getNodeById(id));
+		rebuildQuickPickCache();
 	}, () => {
 		explorerProvider.setSnapshot({ nodes: [], rootIds: [] });
+		instanceHistory.clear();
+		cachedQuickPickItems = [];
+		cachedSearchStrings = [];
 	});
 
 	const sourcemapPath = vscode.workspace.getConfiguration('verde').get('sourcemapPath', 'sourcemap.json');
@@ -59,6 +96,9 @@ export async function activate(context: vscode.ExtensionContext) {
 		if (selection.length === 1) {
 			const node = selection[0];
 			propertiesViewProvider.show(node);
+
+			const instancePath = getInstancePath(node);
+			instanceHistory.add(node, instancePath);
 		}
 	});
 
@@ -107,6 +147,77 @@ export async function activate(context: vscode.ExtensionContext) {
 			} else {
 				vscode.window.showWarningMessage(`Instance ${instanceId} not found in explorer`);
 			}
+		})
+	);
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('verde.goToInstance', async () => {
+			const quickPick = vscode.window.createQuickPick<vscode.QuickPickItem & { node: Node }>();
+			quickPick.placeholder = 'Type to search instances...';
+			quickPick.matchOnDetail = true;
+
+			let debounceTimer: NodeJS.Timeout | undefined;
+
+			quickPick.onDidChangeValue(value => {
+				if (debounceTimer) {
+					clearTimeout(debounceTimer);
+				}
+
+				const query = value.trim().replace(/\s+/g, '.');
+				if (!query) {
+					quickPick.items = [];
+					return;
+				}
+
+				quickPick.busy = true;
+				debounceTimer = setTimeout(() => {
+					const scored: { item: vscode.QuickPickItem & { node: Node }; score: number }[] = [];
+
+					for (let i = 0; i < cachedSearchStrings.length; i++) {
+						const str = cachedSearchStrings[i];
+						if (fzy.hasMatch(query, str)) {
+							scored.push({
+								item: cachedQuickPickItems[i],
+								score: fzy.score(query, str)
+							});
+						}
+					}
+
+					scored.sort((a, b) => b.score - a.score);
+
+					quickPick.items = scored.slice(0, 50).map(r => r.item);
+					quickPick.busy = false;
+				}, 50);
+			});
+
+			quickPick.onDidAccept(async () => {
+				const selected = quickPick.selectedItems[0];
+				if (!selected) {
+					quickPick.hide();
+					return;
+				}
+
+				const node = selected.node;
+				const isScript = isScriptClass(node.className);
+
+				const instancePath = getInstancePath(node);
+				instanceHistory.add(node, instancePath);
+
+				try {
+					await explorerView.reveal(node, { select: true, focus: false });
+				} catch (error) {
+					console.debug('Failed to reveal node in explorer:', error);
+				}
+
+				if (isScript) {
+					await vscode.commands.executeCommand('verde.openScript', node);
+				}
+
+				quickPick.hide();
+			});
+
+			quickPick.onDidHide(() => quickPick.dispose());
+			quickPick.show();
 		})
 	);
 
@@ -183,7 +294,7 @@ export async function activate(context: vscode.ExtensionContext) {
 			let oldFileUri: vscode.Uri | null = null;
 			if (isScript) {
 				await sourcemapParser.loadSourcemaps();
-				const oldInstancePath = getInstancePath(node, explorerProvider);
+				const oldInstancePath = getInstancePath(node);
 				oldFileUri = sourcemapParser.findFilePath(oldInstancePath);
 			}
 
@@ -210,7 +321,7 @@ export async function activate(context: vscode.ExtensionContext) {
 							}
 						}
 
-						const newInstancePath = getInstancePath(updatedNode, explorerProvider);
+						const newInstancePath = getInstancePath(updatedNode);
 						const newFileUri = sourcemapParser.findFilePath(newInstancePath);
 
 						if (newFileUri) {
@@ -306,7 +417,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 				for (const node of nodes) {
 					if (isScriptClass(node.className)) {
-						const instancePath = getInstancePath(node, explorerProvider);
+						const instancePath = getInstancePath(node);
 						const fileUri = sourcemapParser.findFilePath(instancePath);
 						if (fileUri) {
 							scriptFileUris.push(fileUri);
@@ -540,7 +651,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 			try {
 				await sourcemapParser.loadSourcemaps();
-				const instancePath = getInstancePath(node, explorerProvider);
+				const instancePath = getInstancePath(node);
 				const fileUri = sourcemapParser.findFilePath(instancePath);
 
 				if (fileUri) {
@@ -573,7 +684,7 @@ export async function activate(context: vscode.ExtensionContext) {
 			}
 
 			try {
-				const robloxPath = getInstancePath(node, explorerProvider).join(".");
+				const robloxPath = getInstancePath(node).join(".");
 				await vscode.env.clipboard.writeText(robloxPath);
 			} catch (error) {
 				vscode.window.showErrorMessage(`Failed to copy Roblox path: ${String(error)}`);
@@ -602,7 +713,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 			try {
 				await sourcemapParser.loadSourcemaps();
-				const instancePath = getInstancePath(node, explorerProvider);
+				const instancePath = getInstancePath(node);
 				const fileUri = sourcemapParser.findFilePath(instancePath);
 
 				if (fileUri) {
@@ -617,12 +728,12 @@ export async function activate(context: vscode.ExtensionContext) {
 		})
 	);
 
-	function getInstancePath(node: Node, provider: RobloxExplorerProvider): string[] {
+	function getInstancePath(node: Node): string[] {
 		const path: string[] = [node.name];
 		let current = node;
 
 		while (current.parentId) {
-			const parent = provider.getNodeById(current.parentId);
+			const parent = explorerProvider.getNodeById(current.parentId);
 			if (!parent) {
 				break;
 			}
@@ -638,7 +749,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 		while (Date.now() - startTime < timeoutMs) {
 			await sourcemapParser.loadSourcemaps();
-			const instancePath = getInstancePath(node, explorerProvider);
+			const instancePath = getInstancePath(node);
 			const fileUri = sourcemapParser.findFilePath(instancePath);
 
 			if (fileUri) {

@@ -3,7 +3,7 @@
   "publisher": "Dvitash",
   "displayName": "Verde",
   "description": "A VS Code extension for exploring and editing Roblox game instances",
-  "version": "0.1.2",
+  "version": "0.1.4",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -43,6 +43,11 @@
           "type": "boolean",
           "default": true,
           "description": "Automatically start the server when the extension activates"
+        },
+        "verde.overrideCtrlPKeybind": {
+          "type": "boolean",
+          "default": true,
+          "description": "When enabled, Ctrl+P opens the Go to Instance menu instead of VS Code's Quick Open (only when the Verde explorer is focused)"
         }
       }
     },
@@ -133,6 +138,11 @@
         "command": "verde.togglePropertiesPanelMode",
         "title": "Toggle Properties Panel Mode",
         "category": "Verde"
+      },
+      {
+        "command": "verde.goToInstance",
+        "title": "Go to Instance",
+        "category": "Verde"
       }
     ],
     "keybindings": [
@@ -177,6 +187,17 @@
       {
         "command": "verde.togglePropertiesPanelMode",
         "key": "alt+shift+p"
+      },
+      {
+        "command": "verde.goToInstance",
+        "key": "ctrl+p",
+        "mac": "cmd+p",
+        "when": "view.verde.view.visible && config.verde.overrideCtrlPKeybind"
+      },
+      {
+        "command": "verde.goToInstance",
+        "key": "ctrl+shift+g",
+        "mac": "cmd+shift+g"
       }
     ],
     "menus": {
@@ -254,6 +275,7 @@
     "typescript-eslint": "^8.48.1"
   },
   "dependencies": {
+    "fzy.js": "^0.4.1",
     "ws": "^8.18.3"
   }
 }

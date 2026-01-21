@@ -38,6 +38,10 @@ export class RobloxExplorerProvider implements vscode.TreeDataProvider<Node> {
 		return this.nodesById.get(id);
 	}
 
+	public getAllNodes(): Node[] {
+		return Array.from(this.nodesById.values());
+	}
+
 	public getNodeByInstancePath(instancePath: string[]): Node | undefined {
 		if (instancePath.length === 0) {
 			return undefined;
