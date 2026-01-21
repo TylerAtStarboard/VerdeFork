@@ -290,6 +290,27 @@ body {
 	font-size: 11px;
 }
 
+.property-subgroup {
+	margin: 0;
+	padding: 0;
+}
+
+.property-subsubrows {
+	border-left: 2px solid var(--vscode-panel-border);
+	margin-left: 24px;
+}
+
+.property-subsubrow {
+	background: var(--vscode-editor-background);
+}
+
+.property-subsubrow .property-name {
+	padding-left: 12px;
+	color: var(--vscode-descriptionForeground);
+	font-size: 10px;
+	font-style: italic;
+}
+
 .expand-button {
 	display: inline-block;
 	width: 12px;

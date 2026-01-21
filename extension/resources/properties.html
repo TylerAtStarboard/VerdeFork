@@ -391,16 +391,27 @@
                     break;
                 }
                 case "CFrame": {
-                    if (prop.value && typeof prop.value === "object" && prop.value.Position) {
-                        const pos = prop.value.Position;
-                        subRows.appendChild(createSubRow(prop, "Position.X", pos.X ?? 0, (val) => ({ Position: { X: val, Y: pos.Y ?? 0, Z: pos.Z ?? 0 }, Rotation: prop.value.Rotation || { X: 0, Y: 0, Z: 0 } })));
-                        subRows.appendChild(createSubRow(prop, "Position.Y", pos.Y ?? 0, (val) => ({ Position: { X: pos.X ?? 0, Y: val, Z: pos.Z ?? 0 }, Rotation: prop.value.Rotation || { X: 0, Y: 0, Z: 0 } })));
-                        subRows.appendChild(createSubRow(prop, "Position.Z", pos.Z ?? 0, (val) => ({ Position: { X: pos.X ?? 0, Y: pos.Y ?? 0, Z: val }, Rotation: prop.value.Rotation || { X: 0, Y: 0, Z: 0 } })));
-                    } else {
-                        subRows.appendChild(createSubRow(prop, "Position.X", 0, (val) => ({ Position: { X: val, Y: 0, Z: 0 }, Rotation: { X: 0, Y: 0, Z: 0 } })));
-                        subRows.appendChild(createSubRow(prop, "Position.Y", 0, (val) => ({ Position: { X: 0, Y: val, Z: 0 }, Rotation: { X: 0, Y: 0, Z: 0 } })));
-                        subRows.appendChild(createSubRow(prop, "Position.Z", 0, (val) => ({ Position: { X: 0, Y: 0, Z: val }, Rotation: { X: 0, Y: 0, Z: 0 } })));
-                    }
+                    const positionProp = {
+                        name: "Position",
+                        type: "Vector3",
+                        value: prop.value?.Position || { X: 0, Y: 0, Z: 0 },
+                        isReadOnly: prop.isReadOnly
+                    };
+                    const orientationProp = {
+                        name: "Orientation",
+                        type: "Vector3",
+                        value: prop.value?.Rotation || { X: 0, Y: 0, Z: 0 },
+                        isReadOnly: prop.isReadOnly
+                    };
+
+                    subRows.appendChild(createExpandableSubProperty(prop, positionProp, "Position", (newValue) => ({
+                        Position: newValue,
+                        Rotation: prop.value?.Rotation || { X: 0, Y: 0, Z: 0 }
+                    })));
+                    subRows.appendChild(createExpandableSubProperty(prop, orientationProp, "Orientation", (newValue) => ({
+                        Position: prop.value?.Position || { X: 0, Y: 0, Z: 0 },
+                        Rotation: newValue
+                    })));
                     break;
                 }
                 case "NumberRange": {
@@ -418,19 +429,105 @@
             return subRows;
         }
 
-        function createSubRow(prop, subName, currentValue, updateFn) {
+        function createExpandableSubProperty(parentProp, subProp, subPropName, updateFn) {
+            const group = document.createElement("div");
+            group.className = "property-group property-subgroup";
+            group.dataset.propertyName = `${parentProp.name}.${subPropName}`;
+
+            const isExpandable = isMultiValueProperty(subProp.type);
+            const isExpanded = expandedProperties.has(`${parentProp.name}.${subPropName}`);
+
+            if (isExpandable) {
+                const mainRow = createSubRow(parentProp, subProp, subPropName, isExpanded);
+                group.appendChild(mainRow);
+
+                if (isExpanded) {
+                    const subSubRows = createSubRowsForSubProperty(parentProp, subProp, subPropName, updateFn);
+                    group.appendChild(subSubRows);
+                }
+            } else {
+                const mainRow = createSubRow(parentProp, subProp, subPropName, false);
+                group.appendChild(mainRow);
+            }
+
+            return group;
+        }
+
+        function createSubRowsForSubProperty(parentProp, subProp, subPropName, updateParentFn) {
+            const subRows = document.createElement("div");
+            subRows.className = "property-subrows property-subsubrows";
+
+            switch (subProp.type) {
+                case "Vector2": {
+                    if (subProp.value && typeof subProp.value === "object") {
+                        subRows.appendChild(createSubSubRow(parentProp, subPropName, "X", subProp.value.X ?? 0, (val) => {
+                            const newSubValue = { X: val, Y: subProp.value.Y ?? 0 };
+                            return updateParentFn(newSubValue);
+                        }));
+                        subRows.appendChild(createSubSubRow(parentProp, subPropName, "Y", subProp.value.Y ?? 0, (val) => {
+                            const newSubValue = { X: subProp.value.X ?? 0, Y: val };
+                            return updateParentFn(newSubValue);
+                        }));
+                    } else {
+                        subRows.appendChild(createSubSubRow(parentProp, subPropName, "X", 0, (val) => {
+                            const newSubValue = { X: val, Y: 0 };
+                            return updateParentFn(newSubValue);
+                        }));
+                        subRows.appendChild(createSubSubRow(parentProp, subPropName, "Y", 0, (val) => {
+                            const newSubValue = { X: 0, Y: val };
+                            return updateParentFn(newSubValue);
+                        }));
+                    }
+                    break;
+                }
+                case "Vector3": {
+                    if (subProp.value && typeof subProp.value === "object") {
+                        subRows.appendChild(createSubSubRow(parentProp, subPropName, "X", subProp.value.X ?? 0, (val) => {
+                            const newSubValue = { X: val, Y: subProp.value.Y ?? 0, Z: subProp.value.Z ?? 0 };
+                            return updateParentFn(newSubValue);
+                        }));
+                        subRows.appendChild(createSubSubRow(parentProp, subPropName, "Y", subProp.value.Y ?? 0, (val) => {
+                            const newSubValue = { X: subProp.value.X ?? 0, Y: val, Z: subProp.value.Z ?? 0 };
+                            return updateParentFn(newSubValue);
+                        }));
+                        subRows.appendChild(createSubSubRow(parentProp, subPropName, "Z", subProp.value.Z ?? 0, (val) => {
+                            const newSubValue = { X: subProp.value.X ?? 0, Y: subProp.value.Y ?? 0, Z: val };
+                            return updateParentFn(newSubValue);
+                        }));
+                    } else {
+                        subRows.appendChild(createSubSubRow(parentProp, subPropName, "X", 0, (val) => {
+                            const newSubValue = { X: val, Y: 0, Z: 0 };
+                            return updateParentFn(newSubValue);
+                        }));
+                        subRows.appendChild(createSubSubRow(parentProp, subPropName, "Y", 0, (val) => {
+                            const newSubValue = { X: 0, Y: val, Z: 0 };
+                            return updateParentFn(newSubValue);
+                        }));
+                        subRows.appendChild(createSubSubRow(parentProp, subPropName, "Z", 0, (val) => {
+                            const newSubValue = { X: 0, Y: 0, Z: val };
+                            return updateParentFn(newSubValue);
+                        }));
+                    }
+                    break;
+                }
+            }
+
+            return subRows;
+        }
+
+        function createSubSubRow(parentProp, subPropName, componentName, currentValue, updateFn) {
             const row = document.createElement("div");
-            row.className = "property-row property-subrow" + (prop.isReadOnly ? " readonly" : "");
+            row.className = "property-row property-subrow property-subsubrow" + (parentProp.isReadOnly ? " readonly" : "");
 
             const name = document.createElement("div");
             name.className = "property-name";
-            name.textContent = subName;
+            name.textContent = componentName;
             row.appendChild(name);
 
             const value = document.createElement("div");
             value.className = "property-value";
 
-            if (prop.isReadOnly) {
+            if (parentProp.isReadOnly) {
                 const display = document.createElement("div");
                 display.className = "value-display readonly-value";
                 display.textContent = currentValue ?? "0";
@@ -445,13 +542,44 @@
                     const raw = (input.value || "").trim();
                     const numericValue = parseFloat(raw);
                     if (!Number.isFinite(numericValue)) return;
-                    const newValue = updateFn(numericValue);
-                    postSetProperty(prop.name, newValue);
+                    const newParentValue = updateFn(numericValue);
+                    postSetProperty(parentProp.name, newParentValue);
                 });
 
                 value.appendChild(input);
             }
 
+            row.appendChild(value);
+
+            return row;
+        }
+
+        function createSubRow(parentProp, subProp, subPropName, isExpanded) {
+            const row = document.createElement("div");
+            row.className = "property-row property-subrow" + (parentProp.isReadOnly ? " readonly" : "");
+
+            const nameCell = document.createElement("div");
+            nameCell.className = "property-name";
+
+            if (isMultiValueProperty(subProp.type)) {
+                const expandButton = document.createElement("span");
+                expandButton.className = "expand-button" + (isExpanded ? " expanded" : "");
+                expandButton.textContent = isExpanded ? "▼" : "▶";
+                expandButton.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    togglePropertyExpansion(`${parentProp.name}.${subPropName}`);
+                });
+                nameCell.appendChild(expandButton);
+            }
+
+            const name = document.createElement("span");
+            name.textContent = subPropName;
+            nameCell.appendChild(name);
+            row.appendChild(nameCell);
+
+            const value = document.createElement("div");
+            value.className = "property-value";
+            value.appendChild(createEditor(subProp, true));
             row.appendChild(value);
 
             return row;

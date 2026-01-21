@@ -58,6 +58,7 @@ return function(operation)
 		end
 
 		if typeof(propValue) == "CFrame" then
+			local rx, ry, rz = propValue:ToOrientation()
 			propValue = {
 				Position = {
 					X = math.round(propValue.Position.X * 1000) / 1000,
@@ -65,9 +66,9 @@ return function(operation)
 					Z = math.round(propValue.Position.Z * 1000) / 1000,
 				},
 				Rotation = {
-					X = propValue.LookVector.X,
-					Y = propValue.LookVector.Y,
-					Z = propValue.LookVector.Z,
+					X = math.round(math.deg(rx) * 1000) / 1000,
+					Y = math.round(math.deg(ry) * 1000) / 1000,
+					Z = math.round(math.deg(rz) * 1000) / 1000,
 				},
 			}
 		elseif typeof(propValue) == "Vector3" then
