@@ -33,14 +33,14 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
 		const properties = Array.isArray(propertiesData.properties) ? propertiesData.properties : [];
 		for (const prop of properties) {
 			if (prop && prop.type === 'boolean') {
-				prop.type = 'bool';
+				prop.type = 'boolean';
 			}
 		}
 
 		const attributes = Array.isArray(propertiesData.attributes) ? propertiesData.attributes : [];
 		for (const attr of attributes) {
 			if (attr && attr.type === 'boolean') {
-				attr.type = 'bool';
+				attr.type = 'boolean';
 			}
 		}
 

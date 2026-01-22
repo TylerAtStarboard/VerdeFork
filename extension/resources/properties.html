@@ -930,11 +930,6 @@
                 { name: "Hot pink", number: 1032, r: 255, g: 0, b: 191 },
             ];
 
-
-
-
-
-
             const rgb255ToHsv = (r, g, b) => {
                 const rr = r / 255;
                 const gg = g / 255;
@@ -961,7 +956,7 @@
 
 
             if (prop && prop.isReadOnly) {
-                if (prop.type === "bool") {
+                if (prop.type === "boolean") {
                     const checkbox = document.createElement("input");
                     checkbox.type = "checkbox";
                     checkbox.className = "value-checkbox";
@@ -1023,7 +1018,7 @@
             }
 
             switch (prop.type) {
-                case "bool": {
+                case "boolean": {
                     const checkbox = document.createElement("input");
                     checkbox.type = "checkbox";
                     checkbox.className = "value-checkbox";
