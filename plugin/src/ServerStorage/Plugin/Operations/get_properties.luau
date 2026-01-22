@@ -6,6 +6,7 @@ local ReflectionService = game:GetService("ReflectionService")
 local allCapabilities = SecurityCapabilities.new(table.unpack(Enum.SecurityCapability:GetEnumItems()))
 
 local UNSAFE_PROPERTIES = {
+	BrickColor = true,
 	Parent = true,
 	ClassName = true,
 	Disabled = true,
@@ -192,14 +193,6 @@ return function(operation)
 				G = propValue.G,
 				B = propValue.B,
 			}
-		elseif typeof(propValue) == "BrickColor" then
-			propValue = {
-				R = propValue.Color.R,
-				G = propValue.Color.G,
-				B = propValue.Color.B,
-				Name = propValue.Name,
-				Number = propValue.Number,
-			}
 		elseif typeof(propValue) == "NumberRange" then
 			propValue = {
 				Min = propValue.Min,
@@ -333,14 +326,6 @@ return function(operation)
 				serializedValue = {
 					Scale = attrValue.Scale,
 					Offset = attrValue.Offset,
-				}
-			elseif typeof(attrValue) == "BrickColor" then
-				serializedValue = {
-					R = attrValue.Color.R,
-					G = attrValue.Color.G,
-					B = attrValue.Color.B,
-					Name = attrValue.Name,
-					Number = attrValue.Number,
 				}
 			elseif typeof(attrValue) == "NumberRange" then
 				serializedValue = {

@@ -11,7 +11,6 @@ export const ROBLOX_CLASS_NAMES = [
     "Vector3Value",
     "CFrameValue",
     "Color3Value",
-    "BrickColorValue",
     "Accessory",
     "Actor",
     "AdGui",

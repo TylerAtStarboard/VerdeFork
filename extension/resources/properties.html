@@ -790,6 +790,176 @@
                 return null;
             };
 
+            const BRICK_COLORS = [
+                { name: "White", number: 1, r: 242, g: 243, b: 243 },
+                { name: "Grey", number: 2, r: 161, g: 165, b: 162 },
+                { name: "Light yellow", number: 3, r: 249, g: 233, b: 153 },
+                { name: "Brick yellow", number: 5, r: 215, g: 197, b: 154 },
+                { name: "Light green (Mint)", number: 6, r: 194, g: 218, b: 184 },
+                { name: "Light reddish violet", number: 9, r: 232, g: 186, b: 200 },
+                { name: "Pastel Blue", number: 11, r: 128, g: 187, b: 219 },
+                { name: "Light orange brown", number: 12, r: 203, g: 132, b: 66 },
+                { name: "Nougat", number: 18, r: 204, g: 142, b: 105 },
+                { name: "Bright red", number: 21, r: 196, g: 40, b: 28 },
+                { name: "Med. reddish violet", number: 22, r: 196, g: 112, b: 160 },
+                { name: "Bright blue", number: 23, r: 13, g: 105, b: 172 },
+                { name: "Bright yellow", number: 24, r: 245, g: 205, b: 48 },
+                { name: "Earth orange", number: 25, r: 98, g: 71, b: 50 },
+                { name: "Black", number: 26, r: 27, g: 42, b: 53 },
+                { name: "Dark grey", number: 27, r: 109, g: 110, b: 108 },
+                { name: "Dark green", number: 28, r: 40, g: 127, b: 71 },
+                { name: "Medium green", number: 29, r: 161, g: 196, b: 140 },
+                { name: "Lig. Yellowich orange", number: 36, r: 243, g: 207, b: 155 },
+                { name: "Bright green", number: 37, r: 75, g: 151, b: 75 },
+                { name: "Dark orange", number: 38, r: 160, g: 95, b: 53 },
+                { name: "Light bluish violet", number: 39, r: 193, g: 202, b: 222 },
+                { name: "Transparent", number: 40, r: 236, g: 236, b: 236 },
+                { name: "Tr. Red", number: 41, r: 205, g: 84, b: 75 },
+                { name: "Tr. Lg blue", number: 42, r: 193, g: 223, b: 240 },
+                { name: "Tr. Blue", number: 43, r: 123, g: 182, b: 232 },
+                { name: "Tr. Yellow", number: 44, r: 247, g: 241, b: 141 },
+                { name: "Light blue", number: 45, r: 180, g: 210, b: 228 },
+                { name: "Tr. Flu. Reddish orange", number: 47, r: 217, g: 133, b: 108 },
+                { name: "Tr. Green", number: 48, r: 132, g: 182, b: 141 },
+                { name: "Tr. Flu. Green", number: 49, r: 248, g: 241, b: 132 },
+                { name: "Phosph. White", number: 50, r: 236, g: 232, b: 222 },
+                { name: "Light red", number: 100, r: 238, g: 196, b: 182 },
+                { name: "Medium red", number: 101, r: 218, g: 134, b: 122 },
+                { name: "Medium blue", number: 102, r: 110, g: 153, b: 202 },
+                { name: "Light grey", number: 103, r: 199, g: 193, b: 183 },
+                { name: "Bright violet", number: 104, r: 107, g: 50, b: 124 },
+                { name: "Br. yellowish orange", number: 105, r: 226, g: 155, b: 64 },
+                { name: "Bright orange", number: 106, r: 218, g: 133, b: 65 },
+                { name: "Bright bluish green", number: 107, r: 0, g: 143, b: 156 },
+                { name: "Earth yellow", number: 108, r: 104, g: 92, b: 67 },
+                { name: "Bright bluish violet", number: 110, r: 67, g: 84, b: 147 },
+                { name: "Tr. Brown", number: 111, r: 191, g: 183, b: 177 },
+                { name: "Medium bluish violet", number: 112, r: 104, g: 116, b: 172 },
+                { name: "Tr. Medi. reddish violet", number: 113, r: 229, g: 173, b: 200 },
+                { name: "Med. yellowish green", number: 115, r: 199, g: 210, b: 60 },
+                { name: "Med. bluish green", number: 116, r: 85, g: 165, b: 175 },
+                { name: "Light bluish green", number: 118, r: 183, g: 215, b: 213 },
+                { name: "Br. yellowish green", number: 119, r: 164, g: 189, b: 71 },
+                { name: "Lig. yellowish green", number: 120, r: 217, g: 228, b: 167 },
+                { name: "Med. yellowish orange", number: 121, r: 231, g: 172, b: 88 },
+                { name: "Br. reddish orange", number: 123, r: 211, g: 111, b: 76 },
+                { name: "Bright reddish violet", number: 124, r: 146, g: 57, b: 120 },
+                { name: "Light orange", number: 125, r: 234, g: 184, b: 146 },
+                { name: "Tr. Bright bluish violet", number: 126, r: 165, g: 165, b: 203 },
+                { name: "Gold", number: 127, r: 220, g: 188, b: 129 },
+                { name: "Dark nougat", number: 128, r: 174, g: 122, b: 89 },
+                { name: "Silver", number: 131, r: 156, g: 163, b: 168 },
+                { name: "Neon orange", number: 133, r: 213, g: 115, b: 61 },
+                { name: "Neon green", number: 134, r: 216, g: 221, b: 86 },
+                { name: "Sand blue", number: 135, r: 116, g: 134, b: 157 },
+                { name: "Sand violet", number: 136, r: 135, g: 124, b: 144 },
+                { name: "Medium orange", number: 137, r: 224, g: 152, b: 100 },
+                { name: "Sand yellow", number: 138, r: 149, g: 138, b: 115 },
+                { name: "Earth blue", number: 140, r: 32, g: 58, b: 86 },
+                { name: "Earth green", number: 141, r: 39, g: 70, b: 45 },
+                { name: "Tr. Flu. Blue", number: 143, r: 207, g: 226, b: 247 },
+                { name: "Sand blue metallic", number: 145, r: 121, g: 136, b: 161 },
+                { name: "Sand violet metallic", number: 146, r: 149, g: 142, b: 163 },
+                { name: "Sand yellow metallic", number: 147, r: 147, g: 135, b: 103 },
+                { name: "Dark grey metallic", number: 148, r: 87, g: 88, b: 87 },
+                { name: "Black metallic", number: 149, r: 22, g: 29, b: 50 },
+                { name: "Light grey metallic", number: 150, r: 171, g: 173, b: 172 },
+                { name: "Sand green", number: 151, r: 120, g: 144, b: 130 },
+                { name: "Sand red", number: 153, r: 149, g: 121, b: 119 },
+                { name: "Dark red", number: 154, r: 123, g: 46, b: 47 },
+                { name: "Tr. Flu. Yellow", number: 157, r: 255, g: 246, b: 123 },
+                { name: "Tr. Flu. Red", number: 158, r: 225, g: 164, b: 194 },
+                { name: "Gun metallic", number: 168, r: 117, g: 108, b: 98 },
+                { name: "Red flip/flop", number: 176, r: 151, g: 105, b: 91 },
+                { name: "Yellow flip/flop", number: 178, r: 180, g: 132, b: 85 },
+                { name: "Silver flip/flop", number: 179, r: 137, g: 135, b: 136 },
+                { name: "Curry", number: 180, r: 215, g: 169, b: 75 },
+                { name: "Fire Yellow", number: 190, r: 249, g: 214, b: 46 },
+                { name: "Flame yellowish orange", number: 191, r: 232, g: 171, b: 45 },
+                { name: "Reddish brown", number: 192, r: 105, g: 64, b: 40 },
+                { name: "Flame reddish orange", number: 193, r: 207, g: 96, b: 36 },
+                { name: "Medium stone grey", number: 194, r: 163, g: 162, b: 165 },
+                { name: "Royal blue", number: 195, r: 70, g: 103, b: 164 },
+                { name: "Dark Royal blue", number: 196, r: 35, g: 71, b: 139 },
+                { name: "Bright reddish lilac", number: 198, r: 142, g: 66, b: 133 },
+                { name: "Dark stone grey", number: 199, r: 99, g: 95, b: 98 },
+                { name: "Lemon metalic", number: 200, r: 130, g: 138, b: 93 },
+                { name: "Light stone grey", number: 208, r: 229, g: 228, b: 223 },
+                { name: "Dark Curry", number: 209, r: 176, g: 142, b: 68 },
+                { name: "Faded green", number: 210, r: 112, g: 149, b: 120 },
+                { name: "Turquoise", number: 211, r: 121, g: 181, b: 181 },
+                { name: "Light Royal blue", number: 212, r: 159, g: 195, b: 233 },
+                { name: "Medium Royal blue", number: 213, r: 108, g: 129, b: 183 },
+                { name: "Rust", number: 216, r: 144, g: 76, b: 42 },
+                { name: "Brown", number: 217, r: 124, g: 92, b: 70 },
+                { name: "Reddish lilac", number: 218, r: 150, g: 112, b: 159 },
+                { name: "Lilac", number: 219, r: 107, g: 98, b: 155 },
+                { name: "Light lilac", number: 220, r: 167, g: 169, b: 206 },
+                { name: "Bright purple", number: 221, r: 205, g: 98, b: 152 },
+                { name: "Light purple", number: 222, r: 228, g: 173, b: 200 },
+                { name: "Light pink", number: 223, r: 220, g: 144, b: 149 },
+                { name: "Light brick yellow", number: 224, r: 240, g: 213, b: 160 },
+                { name: "Warm yellowish orange", number: 225, r: 235, g: 184, b: 127 },
+                { name: "Cool yellow", number: 226, r: 253, g: 234, b: 141 },
+                { name: "Dove blue", number: 232, r: 125, g: 187, b: 221 },
+                { name: "Medium lilac", number: 268, r: 52, g: 43, b: 117 },
+                { name: "Smoky grey", number: 302, r: 91, g: 93, b: 105 },
+                { name: "Dark blue", number: 303, r: 0, g: 16, b: 176 },
+                { name: "Steel blue", number: 305, r: 82, g: 124, b: 174 },
+                { name: "Storm blue", number: 306, r: 51, g: 88, b: 130 },
+                { name: "Dark indigo", number: 308, r: 61, g: 21, b: 133 },
+                { name: "Cadet blue", number: 314, r: 159, g: 173, b: 192 },
+                { name: "Eggplant", number: 316, r: 123, g: 0, b: 123 },
+                { name: "Ghost grey", number: 320, r: 202, g: 203, b: 209 },
+                { name: "Crimson", number: 327, r: 151, g: 0, b: 0 },
+                { name: "Carnation pink", number: 330, r: 255, g: 152, b: 220 },
+                { name: "Maroon", number: 332, r: 117, g: 0, b: 0 },
+                { name: "Institutional white", number: 1001, r: 248, g: 248, b: 248 },
+                { name: "Really black", number: 1003, r: 17, g: 17, b: 17 },
+                { name: "Really red", number: 1004, r: 255, g: 0, b: 0 },
+                { name: "Deep orange", number: 1005, r: 255, g: 176, b: 0 },
+                { name: "New Yeller", number: 1009, r: 255, g: 255, b: 0 },
+                { name: "Really blue", number: 1010, r: 0, g: 0, b: 255 },
+                { name: "Navy blue", number: 1011, r: 0, g: 32, b: 96 },
+                { name: "Cyan", number: 1013, r: 4, g: 175, b: 236 },
+                { name: "Magenta", number: 1015, r: 170, g: 0, b: 170 },
+                { name: "Pink", number: 1016, r: 255, g: 102, b: 204 },
+                { name: "Teal", number: 1018, r: 18, g: 238, b: 212 },
+                { name: "Lime green", number: 1020, r: 0, g: 255, b: 0 },
+                { name: "Royal purple", number: 1031, r: 98, g: 37, b: 209 },
+                { name: "Hot pink", number: 1032, r: 255, g: 0, b: 191 },
+            ];
+
+
+
+
+
+
+            const rgb255ToHsv = (r, g, b) => {
+                const rr = r / 255;
+                const gg = g / 255;
+                const bb = b / 255;
+
+                const max = Math.max(rr, gg, bb);
+                const min = Math.min(rr, gg, bb);
+                const delta = max - min;
+
+                let h = 0;
+                if (delta !== 0) {
+                    if (max === rr) h = ((gg - bb) / delta) % 6;
+                    else if (max === gg) h = (bb - rr) / delta + 2;
+                    else h = (rr - gg) / delta + 4;
+                    h *= 60;
+                    if (h < 0) h += 360;
+                }
+
+                const s = max === 0 ? 0 : delta / max;
+                const v = max;
+
+                return { h, s, v };
+            };
+
+
             if (prop && prop.isReadOnly) {
                 if (prop.type === "bool") {
                     const checkbox = document.createElement("input");
@@ -1087,6 +1257,7 @@
 
                     return wrapper;
                 }
+
 
                 case "ContentId":
                 case "string": {
@@ -2092,6 +2263,176 @@
                 return null;
             };
 
+            const BRICK_COLORS = [
+                { name: "White", number: 1, r: 242, g: 243, b: 243 },
+                { name: "Grey", number: 2, r: 161, g: 165, b: 162 },
+                { name: "Light yellow", number: 3, r: 249, g: 233, b: 153 },
+                { name: "Brick yellow", number: 5, r: 215, g: 197, b: 154 },
+                { name: "Light green (Mint)", number: 6, r: 194, g: 218, b: 184 },
+                { name: "Light reddish violet", number: 9, r: 232, g: 186, b: 200 },
+                { name: "Pastel Blue", number: 11, r: 128, g: 187, b: 219 },
+                { name: "Light orange brown", number: 12, r: 203, g: 132, b: 66 },
+                { name: "Nougat", number: 18, r: 204, g: 142, b: 105 },
+                { name: "Bright red", number: 21, r: 196, g: 40, b: 28 },
+                { name: "Med. reddish violet", number: 22, r: 196, g: 112, b: 160 },
+                { name: "Bright blue", number: 23, r: 13, g: 105, b: 172 },
+                { name: "Bright yellow", number: 24, r: 245, g: 205, b: 48 },
+                { name: "Earth orange", number: 25, r: 98, g: 71, b: 50 },
+                { name: "Black", number: 26, r: 27, g: 42, b: 53 },
+                { name: "Dark grey", number: 27, r: 109, g: 110, b: 108 },
+                { name: "Dark green", number: 28, r: 40, g: 127, b: 71 },
+                { name: "Medium green", number: 29, r: 161, g: 196, b: 140 },
+                { name: "Lig. Yellowich orange", number: 36, r: 243, g: 207, b: 155 },
+                { name: "Bright green", number: 37, r: 75, g: 151, b: 75 },
+                { name: "Dark orange", number: 38, r: 160, g: 95, b: 53 },
+                { name: "Light bluish violet", number: 39, r: 193, g: 202, b: 222 },
+                { name: "Transparent", number: 40, r: 236, g: 236, b: 236 },
+                { name: "Tr. Red", number: 41, r: 205, g: 84, b: 75 },
+                { name: "Tr. Lg blue", number: 42, r: 193, g: 223, b: 240 },
+                { name: "Tr. Blue", number: 43, r: 123, g: 182, b: 232 },
+                { name: "Tr. Yellow", number: 44, r: 247, g: 241, b: 141 },
+                { name: "Light blue", number: 45, r: 180, g: 210, b: 228 },
+                { name: "Tr. Flu. Reddish orange", number: 47, r: 217, g: 133, b: 108 },
+                { name: "Tr. Green", number: 48, r: 132, g: 182, b: 141 },
+                { name: "Tr. Flu. Green", number: 49, r: 248, g: 241, b: 132 },
+                { name: "Phosph. White", number: 50, r: 236, g: 232, b: 222 },
+                { name: "Light red", number: 100, r: 238, g: 196, b: 182 },
+                { name: "Medium red", number: 101, r: 218, g: 134, b: 122 },
+                { name: "Medium blue", number: 102, r: 110, g: 153, b: 202 },
+                { name: "Light grey", number: 103, r: 199, g: 193, b: 183 },
+                { name: "Bright violet", number: 104, r: 107, g: 50, b: 124 },
+                { name: "Br. yellowish orange", number: 105, r: 226, g: 155, b: 64 },
+                { name: "Bright orange", number: 106, r: 218, g: 133, b: 65 },
+                { name: "Bright bluish green", number: 107, r: 0, g: 143, b: 156 },
+                { name: "Earth yellow", number: 108, r: 104, g: 92, b: 67 },
+                { name: "Bright bluish violet", number: 110, r: 67, g: 84, b: 147 },
+                { name: "Tr. Brown", number: 111, r: 191, g: 183, b: 177 },
+                { name: "Medium bluish violet", number: 112, r: 104, g: 116, b: 172 },
+                { name: "Tr. Medi. reddish violet", number: 113, r: 229, g: 173, b: 200 },
+                { name: "Med. yellowish green", number: 115, r: 199, g: 210, b: 60 },
+                { name: "Med. bluish green", number: 116, r: 85, g: 165, b: 175 },
+                { name: "Light bluish green", number: 118, r: 183, g: 215, b: 213 },
+                { name: "Br. yellowish green", number: 119, r: 164, g: 189, b: 71 },
+                { name: "Lig. yellowish green", number: 120, r: 217, g: 228, b: 167 },
+                { name: "Med. yellowish orange", number: 121, r: 231, g: 172, b: 88 },
+                { name: "Br. reddish orange", number: 123, r: 211, g: 111, b: 76 },
+                { name: "Bright reddish violet", number: 124, r: 146, g: 57, b: 120 },
+                { name: "Light orange", number: 125, r: 234, g: 184, b: 146 },
+                { name: "Tr. Bright bluish violet", number: 126, r: 165, g: 165, b: 203 },
+                { name: "Gold", number: 127, r: 220, g: 188, b: 129 },
+                { name: "Dark nougat", number: 128, r: 174, g: 122, b: 89 },
+                { name: "Silver", number: 131, r: 156, g: 163, b: 168 },
+                { name: "Neon orange", number: 133, r: 213, g: 115, b: 61 },
+                { name: "Neon green", number: 134, r: 216, g: 221, b: 86 },
+                { name: "Sand blue", number: 135, r: 116, g: 134, b: 157 },
+                { name: "Sand violet", number: 136, r: 135, g: 124, b: 144 },
+                { name: "Medium orange", number: 137, r: 224, g: 152, b: 100 },
+                { name: "Sand yellow", number: 138, r: 149, g: 138, b: 115 },
+                { name: "Earth blue", number: 140, r: 32, g: 58, b: 86 },
+                { name: "Earth green", number: 141, r: 39, g: 70, b: 45 },
+                { name: "Tr. Flu. Blue", number: 143, r: 207, g: 226, b: 247 },
+                { name: "Sand blue metallic", number: 145, r: 121, g: 136, b: 161 },
+                { name: "Sand violet metallic", number: 146, r: 149, g: 142, b: 163 },
+                { name: "Sand yellow metallic", number: 147, r: 147, g: 135, b: 103 },
+                { name: "Dark grey metallic", number: 148, r: 87, g: 88, b: 87 },
+                { name: "Black metallic", number: 149, r: 22, g: 29, b: 50 },
+                { name: "Light grey metallic", number: 150, r: 171, g: 173, b: 172 },
+                { name: "Sand green", number: 151, r: 120, g: 144, b: 130 },
+                { name: "Sand red", number: 153, r: 149, g: 121, b: 119 },
+                { name: "Dark red", number: 154, r: 123, g: 46, b: 47 },
+                { name: "Tr. Flu. Yellow", number: 157, r: 255, g: 246, b: 123 },
+                { name: "Tr. Flu. Red", number: 158, r: 225, g: 164, b: 194 },
+                { name: "Gun metallic", number: 168, r: 117, g: 108, b: 98 },
+                { name: "Red flip/flop", number: 176, r: 151, g: 105, b: 91 },
+                { name: "Yellow flip/flop", number: 178, r: 180, g: 132, b: 85 },
+                { name: "Silver flip/flop", number: 179, r: 137, g: 135, b: 136 },
+                { name: "Curry", number: 180, r: 215, g: 169, b: 75 },
+                { name: "Fire Yellow", number: 190, r: 249, g: 214, b: 46 },
+                { name: "Flame yellowish orange", number: 191, r: 232, g: 171, b: 45 },
+                { name: "Reddish brown", number: 192, r: 105, g: 64, b: 40 },
+                { name: "Flame reddish orange", number: 193, r: 207, g: 96, b: 36 },
+                { name: "Medium stone grey", number: 194, r: 163, g: 162, b: 165 },
+                { name: "Royal blue", number: 195, r: 70, g: 103, b: 164 },
+                { name: "Dark Royal blue", number: 196, r: 35, g: 71, b: 139 },
+                { name: "Bright reddish lilac", number: 198, r: 142, g: 66, b: 133 },
+                { name: "Dark stone grey", number: 199, r: 99, g: 95, b: 98 },
+                { name: "Lemon metalic", number: 200, r: 130, g: 138, b: 93 },
+                { name: "Light stone grey", number: 208, r: 229, g: 228, b: 223 },
+                { name: "Dark Curry", number: 209, r: 176, g: 142, b: 68 },
+                { name: "Faded green", number: 210, r: 112, g: 149, b: 120 },
+                { name: "Turquoise", number: 211, r: 121, g: 181, b: 181 },
+                { name: "Light Royal blue", number: 212, r: 159, g: 195, b: 233 },
+                { name: "Medium Royal blue", number: 213, r: 108, g: 129, b: 183 },
+                { name: "Rust", number: 216, r: 144, g: 76, b: 42 },
+                { name: "Brown", number: 217, r: 124, g: 92, b: 70 },
+                { name: "Reddish lilac", number: 218, r: 150, g: 112, b: 159 },
+                { name: "Lilac", number: 219, r: 107, g: 98, b: 155 },
+                { name: "Light lilac", number: 220, r: 167, g: 169, b: 206 },
+                { name: "Bright purple", number: 221, r: 205, g: 98, b: 152 },
+                { name: "Light purple", number: 222, r: 228, g: 173, b: 200 },
+                { name: "Light pink", number: 223, r: 220, g: 144, b: 149 },
+                { name: "Light brick yellow", number: 224, r: 240, g: 213, b: 160 },
+                { name: "Warm yellowish orange", number: 225, r: 235, g: 184, b: 127 },
+                { name: "Cool yellow", number: 226, r: 253, g: 234, b: 141 },
+                { name: "Dove blue", number: 232, r: 125, g: 187, b: 221 },
+                { name: "Medium lilac", number: 268, r: 52, g: 43, b: 117 },
+                { name: "Smoky grey", number: 302, r: 91, g: 93, b: 105 },
+                { name: "Dark blue", number: 303, r: 0, g: 16, b: 176 },
+                { name: "Steel blue", number: 305, r: 82, g: 124, b: 174 },
+                { name: "Storm blue", number: 306, r: 51, g: 88, b: 130 },
+                { name: "Dark indigo", number: 308, r: 61, g: 21, b: 133 },
+                { name: "Cadet blue", number: 314, r: 159, g: 173, b: 192 },
+                { name: "Eggplant", number: 316, r: 123, g: 0, b: 123 },
+                { name: "Ghost grey", number: 320, r: 202, g: 203, b: 209 },
+                { name: "Crimson", number: 327, r: 151, g: 0, b: 0 },
+                { name: "Carnation pink", number: 330, r: 255, g: 152, b: 220 },
+                { name: "Maroon", number: 332, r: 117, g: 0, b: 0 },
+                { name: "Institutional white", number: 1001, r: 248, g: 248, b: 248 },
+                { name: "Really black", number: 1003, r: 17, g: 17, b: 17 },
+                { name: "Really red", number: 1004, r: 255, g: 0, b: 0 },
+                { name: "Deep orange", number: 1005, r: 255, g: 176, b: 0 },
+                { name: "New Yeller", number: 1009, r: 255, g: 255, b: 0 },
+                { name: "Really blue", number: 1010, r: 0, g: 0, b: 255 },
+                { name: "Navy blue", number: 1011, r: 0, g: 32, b: 96 },
+                { name: "Cyan", number: 1013, r: 4, g: 175, b: 236 },
+                { name: "Magenta", number: 1015, r: 170, g: 0, b: 170 },
+                { name: "Pink", number: 1016, r: 255, g: 102, b: 204 },
+                { name: "Teal", number: 1018, r: 18, g: 238, b: 212 },
+                { name: "Lime green", number: 1020, r: 0, g: 255, b: 0 },
+                { name: "Royal purple", number: 1031, r: 98, g: 37, b: 209 },
+                { name: "Hot pink", number: 1032, r: 255, g: 0, b: 191 },
+            ];
+
+
+
+
+
+
+            const rgb255ToHsv = (r, g, b) => {
+                const rr = r / 255;
+                const gg = g / 255;
+                const bb = b / 255;
+
+                const max = Math.max(rr, gg, bb);
+                const min = Math.min(rr, gg, bb);
+                const delta = max - min;
+
+                let h = 0;
+                if (delta !== 0) {
+                    if (max === rr) h = ((gg - bb) / delta) % 6;
+                    else if (max === gg) h = (bb - rr) / delta + 2;
+                    else h = (rr - gg) / delta + 4;
+                    h *= 60;
+                    if (h < 0) h += 360;
+                }
+
+                const s = max === 0 ? 0 : delta / max;
+                const v = max;
+
+                return { h, s, v };
+            };
+
+
             const type = attr.type;
 
             switch (type) {
@@ -2278,6 +2619,7 @@
                     return wrapper;
                 }
 
+
                 case "NumberRange": {
                     const input = document.createElement("input");
                     input.type = "text";
@@ -2414,7 +2756,7 @@
             typeSelect.id = "attribute-type-select";
             typeSelect.className = "attribute-modal-select";
 
-            const types = ["string", "number", "boolean", "Color3", "Vector2", "Vector3", "UDim", "UDim2", "BrickColor", "NumberRange", "NumberSequence", "ColorSequence"];
+            const types = ["string", "number", "boolean", "Color3", "Vector2", "Vector3", "UDim", "UDim2", "NumberRange", "NumberSequence", "ColorSequence"];
             for (const type of types) {
                 const option = document.createElement("option");
                 option.value = type;
