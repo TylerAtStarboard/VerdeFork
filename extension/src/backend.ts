@@ -35,6 +35,7 @@ export type PropertyInfo = {
     type: string;
     value: any;
     category: string;
+    layoutOrder?: number;
     isEnum?: boolean;
     enumValues?: { name: string; value: number }[];
     isInstanceReference?: boolean;

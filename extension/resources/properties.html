@@ -123,12 +123,44 @@
 
         function groupByCategory(properties) {
             const categories = new Map();
+            const categoryOrder = [];
+
             for (const prop of properties) {
                 const categoryName = (prop.category || "Other").toString();
-                if (!categories.has(categoryName)) categories.set(categoryName, []);
+
+                if (!categories.has(categoryName)) {
+                    categories.set(categoryName, []);
+                    categoryOrder.push(categoryName);
+                }
+
                 categories.get(categoryName).push(prop);
             }
-            return categories;
+
+            return { categories, categoryOrder };
+        }
+
+
+        function sortCategoriesByLayoutOrder(categories) {
+            return Array.from(categories.entries())
+                .map(([name, props]) => {
+                    let minOrder = Infinity;
+
+                    for (const prop of props) {
+                        const order = prop.layoutOrder;
+                        if (typeof order === "number") {
+                            minOrder = Math.min(minOrder, order);
+                        }
+                    }
+
+                    return { name, minOrder };
+                })
+                .sort((a, b) => {
+                    if (a.minOrder !== b.minOrder) {
+                        return a.minOrder - b.minOrder;
+                    }
+                    return a.name.localeCompare(b.name);
+                })
+                .map(e => e.name);
         }
 
         function matchesFilter(prop) {
@@ -147,11 +179,19 @@
                 return;
             }
 
-            const categories = groupByCategory(filtered);
-            const sortedCategoryNames = Array.from(categories.keys()).sort((a, b) => a.localeCompare(b));
+            const processedProps = filtered;
 
-            for (const categoryName of sortedCategoryNames) {
+            const { categories, categoryOrder } = groupByCategory(processedProps);
+
+            categoryOrder.sort(compareCategoryNames);
+
+            for (const categoryName of categoryOrder) {
                 const categoryProps = categories.get(categoryName) || [];
+
+                const sortedProps = [...categoryProps].sort((a, b) =>
+                    comparePropertyNamesWithinCategory(categoryName, a.name, b.name, currentNodeClassName)
+                );
+
 
                 const categoryRoot = document.createElement("div");
                 categoryRoot.className = "category" + (collapsedCategories.has(categoryName) ? " collapsed" : "");
@@ -179,7 +219,7 @@
                 const rows = document.createElement("div");
                 rows.className = "rows";
 
-                for (const prop of categoryProps) {
+                for (const prop of sortedProps) {
                     const rowGroup = createRowGroup(prop);
                     rows.appendChild(rowGroup);
                 }
@@ -277,10 +317,10 @@
                 const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
                 const percent = x / rect.width;
                 const newTime = percent * timeLength;
-                
+
                 scrubberFill.style.width = `${percent * 100}%`;
                 scrubberHandle.style.left = `${percent * 100}%`;
-                
+
                 return newTime;
             };
 
@@ -629,7 +669,7 @@
             if (prop.value === null || prop.value === undefined) {
                 return "";
             }
-            
+
             if (prop.isEnum && prop.value && prop.value.Name) {
                 return prop.value.Name;
             }

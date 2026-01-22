@@ -1,9 +1,9 @@
 local PropertyTracker = require(script.Parent.Parent.Shared.PropertyTracker)
-local Filter = require(script.Parent.Parent.Packages.DumpParser.Filter)
-local DumpParser = require(script.Parent.Parent.Packages.DumpParser)
 local InstanceMap = require(script.Parent.Parent.Shared.InstanceMap)
 
-local Dump = DumpParser.fetchFromServer()
+local ReflectionService = game:GetService("ReflectionService")
+
+local allCapabilities = SecurityCapabilities.new(table.unpack(Enum.SecurityCapability:GetEnumItems()))
 
 local UNSAFE_PROPERTIES = {
 	Parent = true,
@@ -11,16 +11,95 @@ local UNSAFE_PROPERTIES = {
 	Disabled = true,
 	Source = true,
 	LinkedSource = true,
+	Capabilities = true,
+	Sandboxed = true,
+	RobloxLocked = true,
 }
 
-local function ReadableFilter(property)
-	if not property.Security then
-		return true
+local reflectedPropertiesCache = {}
+local enumValuesCache = {}
+
+local function getReflectedProperties(className: string)
+	local cached = reflectedPropertiesCache[className]
+	if cached ~= nil then
+		return cached
 	end
-	if typeof(property.Security) == "string" then
-		return property.Security == "None" or property.Security == "PluginSecurity"
+
+	local properties = ReflectionService:GetPropertiesOfClass(className, {
+		Security = allCapabilities,
+		ExcludeInherited = false,
+		ExcludeDisplay = false,
+	})
+
+	reflectedPropertiesCache[className] = properties
+	return properties
+end
+
+local function isDeprecated(reflectedProperty)
+	local display = reflectedProperty.Display
+	if not display then
+		return false
 	end
-	return property.Security.Read == "None"
+
+	return display.DeprecationMessage ~= nil
+end
+
+local function getPropertyTypeName(reflectedProperty)
+	local propertyType = reflectedProperty.Type
+	if not propertyType then
+		return "Unknown"
+	end
+
+	if propertyType.EngineType == "Enum" then
+		return propertyType.EnumType or "Enum"
+	end
+
+	if propertyType.ScriptType == "Instance" then
+		return propertyType.InstanceType or "Instance"
+	end
+
+	return propertyType.ScriptType or propertyType.EngineType or "Unknown"
+end
+
+local function isEnumType(reflectedProperty)
+	local propertyType = reflectedProperty.Type
+	return propertyType ~= nil and propertyType.EngineType == "Enum"
+end
+
+local function getEnumValues(enumTypeName: string)
+	local cached = enumValuesCache[enumTypeName]
+	if cached ~= nil then
+		return cached or nil
+	end
+
+	local success, enumTable = pcall(function()
+		return Enum[enumTypeName]
+	end)
+
+	if not success or not enumTable then
+		enumValuesCache[enumTypeName] = false
+		return nil
+	end
+
+	local enumValues = {}
+	for _, enumItem in enumTable:GetEnumItems() do
+		table.insert(enumValues, {
+			name = enumItem.Name,
+			value = enumItem.Value,
+		})
+	end
+
+	enumValuesCache[enumTypeName] = enumValues
+	return enumValues
+end
+
+local function isWritable(reflectedProperty)
+	local permits = reflectedProperty.Permits
+	if not permits then
+		return false
+	end
+
+	return permits.Write ~= nil or permits.WriteParallel ~= nil
 end
 
 return function(operation)
@@ -32,31 +111,35 @@ return function(operation)
 	end
 
 	local className = instance.ClassName
-	local class = Dump:GetClass(className)
+	local reflectedProperties = getReflectedProperties(className)
 
-	if not class then
+	if not reflectedProperties then
 		return false
 	end
 
-	local properties = class:GetProperties(Filter.Invert(Filter.Deprecated))
-
 	local safeProperties = {}
-	for propertyName, property in properties do
+	for _, reflectedProperty in ipairs(reflectedProperties) do
+		local propertyName = reflectedProperty.Name
+
 		if UNSAFE_PROPERTIES[propertyName] then
 			continue
 		end
 
-		local propType = property.ValueType and property.ValueType.Name or "Unknown"
+		if isDeprecated(reflectedProperty) then
+			continue
+		end
+
+		local propType = getPropertyTypeName(reflectedProperty)
 
 		local success, propValue = pcall(function()
-			return instance[property.Name]
+			return instance[propertyName]
 		end)
 
 		if not success then
 			continue
 		end
 
-		if property.ValueType and property.ValueType.Category == "Enum" and typeof(propValue) == "EnumItem" then
+		if isEnumType(reflectedProperty) and typeof(propValue) == "EnumItem" then
 			propValue = {
 				Value = propValue.Value,
 				Name = propValue.Name,
@@ -159,21 +242,9 @@ return function(operation)
 		end
 
 		local enumValues = nil
-
-		if property.ValueType and property.ValueType.Category == "Enum" then
-			local success, enumTable = pcall(function()
-				return Enum[propType]
-			end)
-
-			if success and enumTable then
-				enumValues = {}
-				for _, enumItem in enumTable:GetEnumItems() do
-					table.insert(enumValues, {
-						name = enumItem.Name,
-						value = enumItem.Value,
-					})
-				end
-			end
+		local isEnum = isEnumType(reflectedProperty)
+		if isEnum then
+			enumValues = getEnumValues(propType)
 		end
 
 		local referencedInstanceId = nil
@@ -190,26 +261,25 @@ return function(operation)
 			end
 		end
 
-		local isReadOnly = false
-		if property.Tags then
-			isReadOnly = table.find(property.Tags, "ReadOnly") ~= nil
+		local category = "Other"
+		if reflectedProperty.Display and reflectedProperty.Display.Category then
+			category = reflectedProperty.Display.Category
 		end
 
-		if
-			not isReadOnly
-			and property.Security
-			and property.Security.Write ~= "None"
-			and property.Security.Write ~= "PluginSecurity"
-		then
-			isReadOnly = true
+		local layoutOrder = nil
+		if reflectedProperty.Display and reflectedProperty.Display.LayoutOrder then
+			layoutOrder = reflectedProperty.Display.LayoutOrder
 		end
+
+		local isReadOnly = not isWritable(reflectedProperty)
 
 		table.insert(safeProperties, {
-			name = property.Name,
+			name = propertyName,
 			type = propType,
 			value = propValue,
-			category = property.Category or "Other",
-			isEnum = property.ValueType and property.ValueType.Category == "Enum" or false,
+			category = category,
+			layoutOrder = layoutOrder,
+			isEnum = isEnum,
 			enumValues = enumValues,
 			isInstanceReference = typeof(propValue) == "Instance",
 			referencedInstanceId = referencedInstanceId,
@@ -225,6 +295,7 @@ return function(operation)
 	local success, attributesTable = pcall(function()
 		return instance:GetAttributes()
 	end)
+
 	if success and attributesTable then
 		for attrName, attrValue in attributesTable do
 			local attrType = typeof(attrValue)

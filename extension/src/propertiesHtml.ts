@@ -12,6 +12,7 @@ export function getPropertiesHtml(extensionUri: vscode.Uri, options: PropertiesH
 
     const htmlPath = path.join(extensionUri.fsPath, "resources", "properties.html");
     const cssPath = path.join(extensionUri.fsPath, "resources", "properties.css");
+    const sortersPath = path.join(extensionUri.fsPath, "src", "robloxPropertySorters.js");
 
     let cssContent = '';
     try {
@@ -21,11 +22,21 @@ export function getPropertiesHtml(extensionUri: vscode.Uri, options: PropertiesH
         cssContent = `body { background: red; color: white; }`;
     }
 
+    let sortersContent = '';
+    try {
+        sortersContent = fs.readFileSync(sortersPath, 'utf8');
+    } catch (sortersError) {
+        console.error("Failed to read robloxPropertySorters.js:", sortersError);
+        sortersContent = '// Failed to load sorters';
+    }
+
     try {
         let htmlContent = fs.readFileSync(htmlPath, 'utf8');
 
         const styleTag = `<style>${cssContent}</style>`;
+        const sortersScriptTag = `<script>\n${sortersContent}\n</script>`;
         htmlContent = htmlContent.replace('<link href="[[styleUri]]" rel="stylesheet">', styleTag);
+        htmlContent = htmlContent.replace('<script>', `${sortersScriptTag}\n<script>`);
         htmlContent = htmlContent.replace('[[topbarHtml]]', getTopbarHtml(options));
         htmlContent = htmlContent.replace('[[scriptElements]]', getScriptElements(options));
         htmlContent = htmlContent.replace('[[filterLogic]]', getFilterLogic(options));

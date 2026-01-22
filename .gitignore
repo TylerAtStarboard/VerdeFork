@@ -5,3 +5,4 @@ out/
 sourcemap.json
 
 *.code-workspace
+scripts/

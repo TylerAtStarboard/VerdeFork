@@ -25,6 +25,28 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
 		});
 	}
 
+	private normalizeTypesForWebview(propertiesData: any): any {
+		if (!propertiesData) {
+			return propertiesData;
+		}
+
+		const properties = Array.isArray(propertiesData.properties) ? propertiesData.properties : [];
+		for (const prop of properties) {
+			if (prop && prop.type === 'boolean') {
+				prop.type = 'bool';
+			}
+		}
+
+		const attributes = Array.isArray(propertiesData.attributes) ? propertiesData.attributes : [];
+		for (const attr of attributes) {
+			if (attr && attr.type === 'boolean') {
+				attr.type = 'bool';
+			}
+		}
+
+		return propertiesData;
+	}
+
 	public resolveWebviewView(
 		webviewView: vscode.WebviewView,
 		context: vscode.WebviewViewResolveContext,
@@ -82,7 +104,7 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
 		}
 
 		try {
-			const propertiesData = await this.backend.getProperties(this.currentNodeId);
+			const propertiesData = this.normalizeTypesForWebview(await this.backend.getProperties(this.currentNodeId));
 
 			this.webviewView.webview.postMessage({
 				type: "updateProperties",
@@ -98,16 +120,18 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
 
 	private updateProperties(properties: any): void {
 		if (this.isUsingSeparatePanel && this.separatePanel) {
+			const normalized = this.normalizeTypesForWebview(properties);
 			this.separatePanel.webview.postMessage({
 				type: "updateProperties",
-				properties: properties,
+				properties: normalized,
 				nodeName: this.currentNodeName,
 				nodeClassName: this.currentNodeClassName,
 			});
 		} else if (this.webviewView) {
+			const normalized = this.normalizeTypesForWebview(properties);
 			this.webviewView.webview.postMessage({
 				type: "updateProperties",
-				properties: properties,
+				properties: normalized,
 				nodeName: this.currentNodeName,
 				nodeClassName: this.currentNodeClassName,
 			});
@@ -367,7 +391,7 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
 		}
 
 		try {
-			const propertiesData = await this.backend.getProperties(this.currentNodeId);
+			const propertiesData = this.normalizeTypesForWebview(await this.backend.getProperties(this.currentNodeId));
 			webview.postMessage({
 				type: "updateProperties",
 				properties: propertiesData,
