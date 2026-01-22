@@ -711,6 +711,85 @@
         }
 
         function createEditor(prop, showCompact) {
+            const clamp255 = (value) => Math.max(0, Math.min(255, value));
+
+            const color3ToRgb255 = (color3) => {
+                const r = clamp255(Math.round(((color3?.R ?? 0) * 255)));
+                const g = clamp255(Math.round(((color3?.G ?? 0) * 255)));
+                const b = clamp255(Math.round(((color3?.B ?? 0) * 255)));
+                return { r, g, b };
+            };
+
+            const rgb255ToHex = (r, g, b) => {
+                const rr = clamp255(r).toString(16).padStart(2, "0");
+                const gg = clamp255(g).toString(16).padStart(2, "0");
+                const bb = clamp255(b).toString(16).padStart(2, "0");
+                return `#${rr}${gg}${bb}`;
+            };
+
+            const hexToRgb255 = (hex) => {
+                const cleaned = (hex || "").trim();
+                if (!/^#[0-9a-fA-F]{6}$/.test(cleaned)) return null;
+                return {
+                    r: parseInt(cleaned.slice(1, 3), 16),
+                    g: parseInt(cleaned.slice(3, 5), 16),
+                    b: parseInt(cleaned.slice(5, 7), 16),
+                };
+            };
+
+            const rgb255ToColor3 = (r, g, b) => ({
+                R: clamp255(r) / 255,
+                G: clamp255(g) / 255,
+                B: clamp255(b) / 255,
+            });
+
+            const formatRgbBracket = (r, g, b) => `[${clamp255(r)}, ${clamp255(g)}, ${clamp255(b)}]`;
+
+            const parseRgbBracket = (text) => {
+                const cleaned = (text || "").trim();
+                const match = cleaned.match(/^\[\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\]$/);
+                if (!match) return null;
+
+                const r = clamp255(parseInt(match[1], 10));
+                const g = clamp255(parseInt(match[2], 10));
+                const b = clamp255(parseInt(match[3], 10));
+
+                return { r, g, b };
+            };
+
+            const parseColorInput = (text) => {
+                const cleaned = (text || "").trim();
+
+                const bracketResult = parseRgbBracket(cleaned);
+                if (bracketResult) return bracketResult;
+
+                const commaParts = cleaned.split(",").map(s => s.trim());
+                if (commaParts.length === 3) {
+                    const r = clamp255(parseInt(commaParts[0], 10));
+                    const g = clamp255(parseInt(commaParts[1], 10));
+                    const b = clamp255(parseInt(commaParts[2], 10));
+                    if (!isNaN(r) && !isNaN(g) && !isNaN(b)) {
+                        return { r, g, b };
+                    }
+                }
+
+                const singleNum = parseFloat(cleaned);
+                if (!isNaN(singleNum) && isFinite(singleNum)) {
+                    if (singleNum === 0) return { r: 0, g: 0, b: 0 };
+                    if (singleNum === 1) return { r: 255, g: 255, b: 255 };
+
+                    if (singleNum > 0 && singleNum < 1) {
+                        const scaled = Math.round(singleNum * 255);
+                        return { r: scaled, g: scaled, b: scaled };
+                    }
+
+                    const clamped = clamp255(Math.round(singleNum));
+                    return { r: clamped, g: clamped, b: clamped };
+                }
+
+                return null;
+            };
+
             if (prop && prop.isReadOnly) {
                 if (prop.type === "bool") {
                     const checkbox = document.createElement("input");
@@ -925,29 +1004,88 @@
                 }
 
                 case "Color3": {
-                    const input = document.createElement("input");
-                    input.type = "color";
-                    input.className = "value-input";
-                    input.style.padding = "0";
-                    input.style.height = "18px";
+                    const wrapper = document.createElement("div");
+                    wrapper.className = "color3-editor";
 
-                    if (prop.value && typeof prop.value === "object") {
-                        const r = Math.max(0, Math.min(255, Math.round((prop.value.R ?? 0) * 255)));
-                        const g = Math.max(0, Math.min(255, Math.round((prop.value.G ?? 0) * 255)));
-                        const b = Math.max(0, Math.min(255, Math.round((prop.value.B ?? 0) * 255)));
-                        input.value = `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
-                    } else {
-                        input.value = "#000000";
-                    }
+                    const swatch = document.createElement("div");
+                    swatch.className = "color3-swatch";
 
-                    input.addEventListener("change", () => {
-                        const r = parseInt(input.value.slice(1, 3), 16) / 255;
-                        const g = parseInt(input.value.slice(3, 5), 16) / 255;
-                        const b = parseInt(input.value.slice(5, 7), 16) / 255;
-                        postSetProperty(prop.name, { R: r, G: g, B: b });
+                    const swatchBox = document.createElement("div");
+                    swatchBox.className = "color3-swatch-box";
+
+                    const colorInput = document.createElement("input");
+                    colorInput.type = "color";
+                    colorInput.className = "color3-input";
+
+                    const textInput = document.createElement("input");
+                    textInput.type = "text";
+                    textInput.className = "color3-text";
+                    textInput.spellcheck = false;
+
+                    const initial = color3ToRgb255(prop.value);
+                    const initialHex = rgb255ToHex(initial.r, initial.g, initial.b);
+
+                    let suppress = false;
+
+                    const setUi = (r, g, b) => {
+                        const hex = rgb255ToHex(r, g, b);
+                        swatchBox.style.backgroundColor = hex;
+
+                        suppress = true;
+                        colorInput.value = hex;
+                        textInput.value = formatRgbBracket(r, g, b);
+                        suppress = false;
+                    };
+
+                    const commit = (r, g, b) => {
+                        setUi(r, g, b);
+                        postSetProperty(prop.name, rgb255ToColor3(r, g, b));
+                    };
+
+                    setUi(initial.r, initial.g, initial.b);
+
+                    textInput.addEventListener("focus", () => {
+                        textInput.select();
                     });
 
-                    return input;
+                    textInput.addEventListener("keydown", (e) => {
+                        if ([46, 8, 9, 27, 13, 110, 190].indexOf(e.keyCode) !== -1 ||
+                            (e.ctrlKey && [65, 67, 86, 88, 90].indexOf(e.keyCode) !== -1) ||
+                            [35, 36, 37, 39].indexOf(e.keyCode) !== -1) {
+                            return;
+                        }
+                        if ((e.shiftKey || (e.keyCode < 48 || e.keyCode > 57)) &&
+                            (e.keyCode < 96 || e.keyCode > 105) &&
+                            e.key !== "," && e.key !== "[" && e.key !== "]") {
+                            e.preventDefault();
+                        }
+                    });
+
+                    colorInput.addEventListener("change", () => {
+                        if (suppress) return;
+                        const rgb = hexToRgb255(colorInput.value);
+                        if (!rgb) return;
+                        commit(rgb.r, rgb.g, rgb.b);
+                    });
+
+                    textInput.addEventListener("change", () => {
+                        if (suppress) return;
+                        const rgb = parseColorInput(textInput.value);
+                        if (!rgb) {
+                            const current = color3ToRgb255(prop.value);
+                            setUi(current.r, current.g, current.b);
+                            return;
+                        }
+                        commit(rgb.r, rgb.g, rgb.b);
+                    });
+
+                    swatch.appendChild(swatchBox);
+                    swatch.appendChild(colorInput);
+
+                    wrapper.appendChild(swatch);
+                    wrapper.appendChild(textInput);
+
+                    return wrapper;
                 }
 
                 case "ContentId":
@@ -971,12 +1109,7 @@
                     input.value = prop.value != null ? String(prop.value) : "";
 
                     input.addEventListener("change", () => {
-                        const raw = input.value;
-                        try {
-                            postSetProperty(prop.name, JSON.parse(raw));
-                        } catch {
-                            postSetProperty(prop.name, raw);
-                        }
+                        postSetProperty(prop.name, input.value);
                     });
 
                     return input;
@@ -1880,6 +2013,85 @@
         }
 
         function createAttributeEditor(attr) {
+            const clamp255 = (value) => Math.max(0, Math.min(255, value));
+
+            const color3ToRgb255 = (color3) => {
+                const r = clamp255(Math.round(((color3?.R ?? 0) * 255)));
+                const g = clamp255(Math.round(((color3?.G ?? 0) * 255)));
+                const b = clamp255(Math.round(((color3?.B ?? 0) * 255)));
+                return { r, g, b };
+            };
+
+            const rgb255ToHex = (r, g, b) => {
+                const rr = clamp255(r).toString(16).padStart(2, "0");
+                const gg = clamp255(g).toString(16).padStart(2, "0");
+                const bb = clamp255(b).toString(16).padStart(2, "0");
+                return `#${rr}${gg}${bb}`;
+            };
+
+            const hexToRgb255 = (hex) => {
+                const cleaned = (hex || "").trim();
+                if (!/^#[0-9a-fA-F]{6}$/.test(cleaned)) return null;
+                return {
+                    r: parseInt(cleaned.slice(1, 3), 16),
+                    g: parseInt(cleaned.slice(3, 5), 16),
+                    b: parseInt(cleaned.slice(5, 7), 16),
+                };
+            };
+
+            const rgb255ToColor3 = (r, g, b) => ({
+                R: clamp255(r) / 255,
+                G: clamp255(g) / 255,
+                B: clamp255(b) / 255,
+            });
+
+            const formatRgbBracket = (r, g, b) => `[${clamp255(r)}, ${clamp255(g)}, ${clamp255(b)}]`;
+
+            const parseRgbBracket = (text) => {
+                const cleaned = (text || "").trim();
+                const match = cleaned.match(/^\[\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\]$/);
+                if (!match) return null;
+
+                const r = clamp255(parseInt(match[1], 10));
+                const g = clamp255(parseInt(match[2], 10));
+                const b = clamp255(parseInt(match[3], 10));
+
+                return { r, g, b };
+            };
+
+            const parseColorInput = (text) => {
+                const cleaned = (text || "").trim();
+
+                const bracketResult = parseRgbBracket(cleaned);
+                if (bracketResult) return bracketResult;
+
+                const commaParts = cleaned.split(",").map(s => s.trim());
+                if (commaParts.length === 3) {
+                    const r = clamp255(parseInt(commaParts[0], 10));
+                    const g = clamp255(parseInt(commaParts[1], 10));
+                    const b = clamp255(parseInt(commaParts[2], 10));
+                    if (!isNaN(r) && !isNaN(g) && !isNaN(b)) {
+                        return { r, g, b };
+                    }
+                }
+
+                const singleNum = parseFloat(cleaned);
+                if (!isNaN(singleNum) && isFinite(singleNum)) {
+                    if (singleNum === 0) return { r: 0, g: 0, b: 0 };
+                    if (singleNum === 1) return { r: 255, g: 255, b: 255 };
+
+                    if (singleNum > 0 && singleNum < 1) {
+                        const scaled = Math.round(singleNum * 255);
+                        return { r: scaled, g: scaled, b: scaled };
+                    }
+
+                    const clamped = clamp255(Math.round(singleNum));
+                    return { r: clamped, g: clamped, b: clamped };
+                }
+
+                return null;
+            };
+
             const type = attr.type;
 
             switch (type) {
@@ -1984,29 +2196,86 @@
                 }
 
                 case "Color3": {
-                    const input = document.createElement("input");
-                    input.type = "color";
-                    input.className = "value-input";
-                    input.style.padding = "0";
-                    input.style.height = "18px";
+                    const wrapper = document.createElement("div");
+                    wrapper.className = "color3-editor";
 
-                    if (attr.value && typeof attr.value === "object") {
-                        const r = Math.max(0, Math.min(255, Math.round((attr.value.R ?? 0) * 255)));
-                        const g = Math.max(0, Math.min(255, Math.round((attr.value.G ?? 0) * 255)));
-                        const b = Math.max(0, Math.min(255, Math.round((attr.value.B ?? 0) * 255)));
-                        input.value = `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
-                    } else {
-                        input.value = "#ffffff";
-                    }
+                    const swatch = document.createElement("div");
+                    swatch.className = "color3-swatch";
 
-                    const updateColor = () => {
-                        const r = parseInt(input.value.slice(1, 3), 16) / 255;
-                        const g = parseInt(input.value.slice(3, 5), 16) / 255;
-                        const b = parseInt(input.value.slice(5, 7), 16) / 255;
-                        postSetAttribute(attr.name, { R: r, G: g, B: b });
+                    const swatchBox = document.createElement("div");
+                    swatchBox.className = "color3-swatch-box";
+
+                    const colorInput = document.createElement("input");
+                    colorInput.type = "color";
+                    colorInput.className = "color3-input";
+
+                    const textInput = document.createElement("input");
+                    textInput.type = "text";
+                    textInput.className = "color3-text";
+                    textInput.spellcheck = false;
+
+                    const initial = color3ToRgb255(attr.value);
+                    let suppress = false;
+
+                    const setUi = (r, g, b) => {
+                        const hex = rgb255ToHex(r, g, b);
+                        swatchBox.style.backgroundColor = hex;
+
+                        suppress = true;
+                        colorInput.value = hex;
+                        textInput.value = formatRgbBracket(r, g, b);
+                        suppress = false;
                     };
-                    input.addEventListener("change", updateColor);
-                    return input;
+
+                    const commit = (r, g, b) => {
+                        setUi(r, g, b);
+                        postSetAttribute(attr.name, rgb255ToColor3(r, g, b));
+                    };
+
+                    setUi(initial.r, initial.g, initial.b);
+
+                    textInput.addEventListener("focus", () => {
+                        textInput.select();
+                    });
+
+                    textInput.addEventListener("keydown", (e) => {
+                        if ([46, 8, 9, 27, 13, 110, 190].indexOf(e.keyCode) !== -1 ||
+                            (e.ctrlKey && [65, 67, 86, 88, 90].indexOf(e.keyCode) !== -1) ||
+                            [35, 36, 37, 39].indexOf(e.keyCode) !== -1) {
+                            return;
+                        }
+                        if ((e.shiftKey || (e.keyCode < 48 || e.keyCode > 57)) &&
+                            (e.keyCode < 96 || e.keyCode > 105) &&
+                            e.key !== "," && e.key !== "[" && e.key !== "]") {
+                            e.preventDefault();
+                        }
+                    });
+
+                    colorInput.addEventListener("change", () => {
+                        if (suppress) return;
+                        const rgb = hexToRgb255(colorInput.value);
+                        if (!rgb) return;
+                        commit(rgb.r, rgb.g, rgb.b);
+                    });
+
+                    textInput.addEventListener("change", () => {
+                        if (suppress) return;
+                        const rgb = parseColorInput(textInput.value);
+                        if (!rgb) {
+                            const current = color3ToRgb255(attr.value);
+                            setUi(current.r, current.g, current.b);
+                            return;
+                        }
+                        commit(rgb.r, rgb.g, rgb.b);
+                    });
+
+                    swatch.appendChild(swatchBox);
+                    swatch.appendChild(colorInput);
+
+                    wrapper.appendChild(swatch);
+                    wrapper.appendChild(textInput);
+
+                    return wrapper;
                 }
 
                 case "NumberRange": {
