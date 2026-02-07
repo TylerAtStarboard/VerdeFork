@@ -23,7 +23,9 @@ type Snapshot = {
 local MAX_DEPTH = 10000
 local MAX_NODES = math.huge
 
-return function(): (Snapshot, { [string]: Instance })
+local SerializeDatamodel = {}
+
+function SerializeDatamodel.serializeFull(): (Snapshot, { [string]: Instance })
 	local nodes: { Node } = {}
 	local instanceMap: { [string]: Instance } = {}
 	local rootIds: { string } = {}
@@ -80,3 +82,40 @@ return function(): (Snapshot, { [string]: Instance })
 
 	return snapshot, instanceMap
 end
+
+function SerializeDatamodel.serializeSubtree(instance: Instance): (string, { Node })
+	local nodes: { Node } = {}
+	local nodeCount = 0
+
+	local function processInstance(inner: Instance, parentId: string?, depth: number): string?
+		if depth >= MAX_DEPTH or nodeCount >= MAX_NODES then
+			return nil
+		end
+
+		local id = inner:GetDebugId(0)
+		local node: Node = {
+			id = id,
+			name = inner.Name,
+			className = inner.ClassName,
+			parentId = parentId,
+			children = {},
+		}
+
+		table.insert(nodes, node)
+		nodeCount += 1
+
+		for _, child in inner:GetChildren() do
+			local childId = processInstance(child, id, depth + 1)
+			if childId then
+				table.insert(node.children, childId)
+			end
+		end
+
+		return id
+	end
+
+	local rootId = processInstance(instance, nil, 0)
+	return rootId :: string, nodes
+end
+
+return SerializeDatamodel

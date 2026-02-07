@@ -3,7 +3,7 @@
   "publisher": "Dvitash",
   "displayName": "Verde",
   "description": "A VS Code extension for exploring and editing Roblox game instances",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -63,6 +63,7 @@
     "views": {
       "verdeContainer": [
         {
+          "type": "webview",
           "id": "verde.view",
           "name": "Explorer"
         },
@@ -74,6 +75,12 @@
       ]
     },
     "commands": [
+      {
+        "command": "verde.refreshExplorer",
+        "title": "Refresh",
+        "icon": "$(refresh)",
+        "category": "Verde"
+      },
       {
         "command": "verde.showOutput",
         "title": "Show Output",
@@ -225,53 +232,12 @@
     "menus": {
       "view/title": [
         {
-          "command": "verde.showOutput",
+          "command": "verde.refreshExplorer",
           "when": "view == verde.view",
           "group": "navigation"
         }
       ],
-      "view/item/context": [
-        {
-          "command": "verde.renameInstance",
-          "when": "view == verde.view",
-          "group": "7_modification"
-        },
-        {
-          "command": "verde.duplicateInstance",
-          "when": "view == verde.view",
-          "group": "7_modification"
-        },
-        {
-          "command": "verde.deleteInstance",
-          "when": "view == verde.view",
-          "group": "7_modification"
-        },
-        {
-          "command": "verde.copyInstance",
-          "when": "view == verde.view",
-          "group": "9_cutcopypaste"
-        },
-        {
-          "command": "verde.pasteInstance",
-          "when": "view == verde.view",
-          "group": "9_cutcopypaste"
-        },
-        {
-          "command": "verde.addInstance",
-          "when": "view == verde.view",
-          "group": "7_modification"
-        },
-        {
-          "command": "verde.copyRobloxPath",
-          "when": "view == verde.view",
-          "group": "8_copy"
-        },
-        {
-          "command": "verde.copyFilePath",
-          "when": "view == verde.view && viewItem == script",
-          "group": "8_copy"
-        }
-      ]
+      "view/item/context": []
     }
   },
   "scripts": {

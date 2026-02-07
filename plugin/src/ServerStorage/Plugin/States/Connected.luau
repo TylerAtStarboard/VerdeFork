@@ -22,8 +22,17 @@ local PROPERTIES_TO_WATCH = {
 local operations: { [string]: (...any) -> boolean } = {}
 local connections: { RBXScriptConnection } = {}
 local snapshotPromise: any = nil
+local deltaPromise: any = nil
+local pendingOps: { any } = {}
 
 local lastAckTime = 0
+
+local function _fillInstanceMap(instance: Instance)
+	InstanceMap[instance:GetDebugId(0)] = instance
+	for _, child in instance:GetChildren() do
+		_fillInstanceMap(child)
+	end
+end
 
 for _, operationMod in script.Parent.Parent.Operations:GetChildren() do
 	local operation = require(operationMod)
@@ -36,7 +45,7 @@ local function _sendSnapshot(client: Client)
 		return
 	end
 
-	local snapshot, _instanceMap = SerializeDatamodel()
+	local snapshot, _instanceMap = SerializeDatamodel.serializeFull()
 
 	for id, instance in _instanceMap do
 		InstanceMap[id] = instance
@@ -59,14 +68,52 @@ local function _sendSnapshot(client: Client)
 	assert(client:send(jsonString), "failed to send snapshot")
 end
 
-local function _queueSnapshot(client: Client)
-	if snapshotPromise then
-		snapshotPromise:cancel()
+local function _flushDelta(client: Client)
+	if not client or not client.connected or #pendingOps == 0 then
+		return
 	end
 
-	snapshotPromise = Promise.delay(0.1):andThen(function()
-		snapshotPromise = nil
-		_sendSnapshot(client)
+	local addedRootIds: { string }? = nil
+	for _, op in pendingOps do
+		if op.type == "add_subtree" and op.addedRootId then
+			addedRootIds = addedRootIds or {}
+			table.insert(addedRootIds, op.addedRootId)
+		end
+	end
+
+	local message: any = {
+		type = "explorer_delta",
+		ops = pendingOps,
+	}
+	if addedRootIds then
+		message.addedRootIds = addedRootIds
+	end
+
+	local opsToSend = pendingOps
+	pendingOps = {}
+
+	local jsonSuccess, jsonString = pcall(function()
+		return HttpService:JSONEncode(message)
+	end)
+
+	if not jsonSuccess then
+		warn("[verde] failed to encode explorer_delta:", jsonString)
+		pendingOps = opsToSend
+		return
+	end
+
+	client:send(jsonString)
+end
+
+local function _pushOp(client: Client, op: any)
+	table.insert(pendingOps, op)
+	if deltaPromise then
+		deltaPromise:cancel()
+	end
+
+	deltaPromise = Promise.delay(0.1):andThen(function()
+		deltaPromise = nil
+		_flushDelta(client)
 	end)
 end
 
@@ -212,17 +259,29 @@ local function _listenToChanges(client: Client, descendant: Instance)
 		table.insert(
 			connections,
 			descendant:GetPropertyChangedSignal(property):Connect(function()
-				_queueSnapshot(client)
-			end)
-		)
-
-		table.insert(
-			connections,
-			descendant.AncestryChanged:Connect(function()
-				_queueSnapshot(client)
+				_pushOp(client, {
+					type = "update_node",
+					timestamp = tick(),
+					id = descendant:GetDebugId(0),
+					name = descendant.Name,
+				})
 			end)
 		)
 	end
+
+	table.insert(
+		connections,
+		descendant.AncestryChanged:Connect(function()
+			local parent = descendant.Parent
+			local newParentId = if parent and parent ~= game then parent:GetDebugId(0) else nil
+			_pushOp(client, {
+				type = "move_node",
+				timestamp = tick(),
+				id = descendant:GetDebugId(0),
+				newParentId = newParentId,
+			})
+		end)
+	)
 end
 
 local connected = State.new()
@@ -270,7 +329,32 @@ connected.onEnter = function(transitionTo: (string) -> (), client: WebSocketClie
 			end
 
 			_listenToChanges(client, descendant)
-			_queueSnapshot(client)
+
+			local parent = descendant.Parent
+			if parent and parent ~= game then
+				if not InstanceMap[parent:GetDebugId(0)] then
+					return
+				end
+			end
+
+			local rootId, nodes = SerializeDatamodel.serializeSubtree(descendant)
+			if not rootId or not nodes then
+				return
+			end
+			_fillInstanceMap(descendant)
+
+			local parentId = if parent and parent ~= game then parent:GetDebugId(0) else nil
+			local op: any = {
+				type = "add_subtree",
+				timestamp = tick(),
+				parentId = parentId,
+				rootId = rootId,
+				nodes = nodes,
+			}
+			if parent == game then
+				op.addedRootId = rootId
+			end
+			_pushOp(client, op)
 		end)
 	)
 
@@ -284,7 +368,11 @@ connected.onEnter = function(transitionTo: (string) -> (), client: WebSocketClie
 
 			InstanceMap[instanceId] = nil
 
-			_queueSnapshot(client)
+			_pushOp(client, {
+				type = "remove_node",
+				timestamp = tick(),
+				id = instanceId,
+			})
 		end)
 	)
 
@@ -316,11 +404,16 @@ connected.onExit = function()
 		snapshotPromise:cancel()
 	end
 
+	if deltaPromise then
+		deltaPromise:cancel()
+	end
+
 	if propertyUpdatePromise then
 		propertyUpdatePromise:cancel()
 	end
 
 	table.clear(connections)
+	table.clear(pendingOps)
 	table.clear(InstanceMap)
 	lastAckTime = tick()
 end

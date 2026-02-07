@@ -68,6 +68,10 @@ export async function activate(context: vscode.ExtensionContext) {
 		explorerProvider.setSnapshot(snapshot);
 		instanceHistory.updateNodeReferences((id: string) => explorerProvider.getNodeById(id));
 		rebuildQuickPickCache();
+	}, (ops, addedRootIds) => {
+		explorerProvider.applyDelta(ops, addedRootIds);
+		instanceHistory.updateNodeReferences((id: string) => explorerProvider.getNodeById(id));
+		rebuildQuickPickCache();
 	}, () => {
 		explorerProvider.setSnapshot({ nodes: [], rootIds: [] });
 		instanceHistory.clear();
@@ -218,6 +222,14 @@ export async function activate(context: vscode.ExtensionContext) {
 
 			quickPick.onDidHide(() => quickPick.dispose());
 			quickPick.show();
+		})
+	);
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand("verde.refreshExplorer", async () => {
+			if (backend) {
+				await backend.requestSnapshot();
+			}
 		})
 	);
 

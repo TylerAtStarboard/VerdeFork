@@ -69,8 +69,15 @@ export type TextRange = {
     end: { line: number; character: number };
 };
 
+export type ExplorerDeltaOp =
+    | { type: "add_subtree"; timestamp: number; parentId: string | null; rootId: string; nodes: Snapshot["nodes"] }
+    | { type: "remove_node"; timestamp: number; id: string }
+    | { type: "update_node"; timestamp: number; id: string; name?: string }
+    | { type: "move_node"; timestamp: number; id: string; newParentId: string | null };
+
 type RobloxInboundMessage =
     | { type: "explorer_snapshot"; requestId?: string; payload?: Snapshot }
+    | { type: "explorer_delta"; ops: ExplorerDeltaOp[]; addedRootIds?: string[] }
     | { type: "operation_result"; requestId?: string; operationId: string; result: OperationResult }
     | { type: "property_update"; nodeId: string; properties: PropertiesData }
     | { type: "handshake"; timestamp: number }
@@ -87,6 +94,7 @@ export class VerdeBackend {
     private readonly outputChannel: vscode.OutputChannel;
     private readonly statusBarItem: vscode.StatusBarItem;
     private readonly onSnapshotReceived: (snapshot: Snapshot) => void;
+    private readonly onDeltaReceived?: (ops: ExplorerDeltaOp[], addedRootIds?: string[]) => void;
     private readonly onConnectionLost?: () => void;
     private onPropertyUpdate?: (nodeId: string, properties: PropertiesData) => void;
 
@@ -103,11 +111,13 @@ export class VerdeBackend {
         outputChannel: vscode.OutputChannel,
         statusBarItem: vscode.StatusBarItem,
         onSnapshotReceived: (snapshot: Snapshot) => void,
+        onDeltaReceived?: (ops: ExplorerDeltaOp[], addedRootIds?: string[]) => void,
         onConnectionLost?: () => void,
     ) {
         this.outputChannel = outputChannel;
         this.statusBarItem = statusBarItem;
         this.onSnapshotReceived = onSnapshotReceived;
+        this.onDeltaReceived = onDeltaReceived;
         this.onConnectionLost = onConnectionLost;
         this.updateStatusBar();
     }
@@ -379,6 +389,21 @@ export class VerdeBackend {
                 }
 
                 this.send(socket, { type: "ack", requestId: message.requestId });
+                return;
+            }
+
+            case "explorer_delta": {
+                this.lastAckTime = Date.now();
+                const deltaMessage = message as { type: "explorer_delta"; ops: ExplorerDeltaOp[]; addedRootIds?: string[] };
+                const ops = deltaMessage.ops ?? [];
+                if (!Array.isArray(ops) || ops.length === 0) {
+                    this.send(socket, { type: "ack", requestId: (message as any).requestId });
+                    return;
+                }
+                if (this.onDeltaReceived) {
+                    this.onDeltaReceived(ops, deltaMessage.addedRootIds);
+                }
+                this.send(socket, { type: "ack", requestId: (message as any).requestId });
                 return;
             }
 
