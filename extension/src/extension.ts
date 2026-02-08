@@ -80,13 +80,17 @@ export async function activate(context: vscode.ExtensionContext) {
 	propertiesViewProvider = new PropertiesViewProvider(backend, context.extensionUri);
 
 	context.subscriptions.push(
-		vscode.window.registerWebviewViewProvider(PropertiesViewProvider.viewType, propertiesViewProvider)
+		vscode.window.registerWebviewViewProvider(PropertiesViewProvider.viewType, propertiesViewProvider, {
+			webviewOptions: { retainContextWhenHidden: true },
+		})
 	);
 
 	explorerViewProvider = new ExplorerViewProvider(context.extensionUri, explorerProvider, backend);
 
 	context.subscriptions.push(
-		vscode.window.registerWebviewViewProvider(ExplorerViewProvider.viewType, explorerViewProvider)
+		vscode.window.registerWebviewViewProvider(ExplorerViewProvider.viewType, explorerViewProvider, {
+			webviewOptions: { retainContextWhenHidden: true },
+		})
 	);
 
 	context.subscriptions.push(

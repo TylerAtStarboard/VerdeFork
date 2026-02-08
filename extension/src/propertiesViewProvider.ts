@@ -54,12 +54,6 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
 	) {
 		this.webviewView = webviewView;
 
-		if (this.currentNodeId) {
-			setTimeout(() => {
-				this.loadProperties();
-			}, 100);
-		}
-
 		webviewView.webview.options = {
 			enableScripts: true,
 			localResourceRoots: [
@@ -68,8 +62,6 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
 			]
 		};
 
-		webviewView.webview.html = getPropertiesHtml(this.extensionUri, { showToggleButton: true });
-
 		webviewView.webview.onDidReceiveMessage(async (message) => {
 			await this.handleMessage(message);
 		});
@@ -77,6 +69,11 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
 		webviewView.onDidDispose(() => {
 			this.webviewView = undefined;
 		});
+
+		webviewView.webview.html = getPropertiesHtml(this.extensionUri, { showToggleButton: true });
+		if (this.currentNodeId) {
+			setTimeout(() => this.loadProperties(), 100);
+		}
 	}
 
 	public refreshWebviewHtml(): void {

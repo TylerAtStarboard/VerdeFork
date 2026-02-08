@@ -6,217 +6,217 @@ import { isScriptClass } from "./utils";
 import { getThemeCssBlock, getThemeStyleAttribute } from "./webviewTheme";
 
 type WebviewNode = {
-	id: string;
-	name: string;
-	className: string;
-	children: string[];
-	isScript: boolean;
+  id: string;
+  name: string;
+  className: string;
+  children: string[];
+  isScript: boolean;
 };
 
 export class ExplorerViewProvider implements vscode.WebviewViewProvider {
-	public static readonly viewType = "verde.view";
+  public static readonly viewType = "verde.view";
 
-	private webviewView: vscode.WebviewView | undefined;
-	private selectedIds: string[] = [];
-	private selectionListeners: ((nodes: Node[]) => void)[] = [];
+  private webviewView: vscode.WebviewView | undefined;
+  private selectedIds: string[] = [];
+  private selectionListeners: ((nodes: Node[]) => void)[] = [];
 
-	constructor(
-		private readonly extensionUri: vscode.Uri,
-		private readonly explorerProvider: RobloxExplorerProvider,
-		private readonly backend: VerdeBackend,
-	) {
-		this.explorerProvider.onChange(() => this.pushTree());
-	}
+  constructor(
+    private readonly extensionUri: vscode.Uri,
+    private readonly explorerProvider: RobloxExplorerProvider,
+    private readonly backend: VerdeBackend,
+  ) {
+    this.explorerProvider.onChange(() => this.pushTree());
+  }
 
-	public onSelectionChanged(listener: (nodes: Node[]) => void): void {
-		this.selectionListeners.push(listener);
-	}
+  public onSelectionChanged(listener: (nodes: Node[]) => void): void {
+    this.selectionListeners.push(listener);
+  }
 
-	public getSelection(): Node[] {
-		return this.selectedIds
-			.map(id => this.explorerProvider.getNodeById(id))
-			.filter((n): n is Node => n !== undefined);
-	}
+  public getSelection(): Node[] {
+    return this.selectedIds
+      .map(id => this.explorerProvider.getNodeById(id))
+      .filter((n): n is Node => n !== undefined);
+  }
 
-	public isVisible(): boolean {
-		return this.webviewView?.visible ?? false;
-	}
+  public isVisible(): boolean {
+    return this.webviewView?.visible ?? false;
+  }
 
-	public startRename(nodeId: string): void {
-		this.post({ type: "startRename", nodeId });
-	}
+  public startRename(nodeId: string): void {
+    this.post({ type: "startRename", nodeId });
+  }
 
-	public reveal(node: Node): void {
-		const ancestors: string[] = [];
-		let cur: Node | undefined = node;
-		while (cur?.parentId) {
-			ancestors.push(cur.parentId);
-			cur = this.explorerProvider.getNodeById(cur.parentId);
-		}
-		this.selectedIds = [node.id];
-		this.post({
-			type: "revealNode",
-			nodeId: node.id,
-			ancestors,
-			selectedIds: [node.id],
-		});
-		this.fireSelectionChanged();
-	}
+  public reveal(node: Node): void {
+    const ancestors: string[] = [];
+    let cur: Node | undefined = node;
+    while (cur?.parentId) {
+      ancestors.push(cur.parentId);
+      cur = this.explorerProvider.getNodeById(cur.parentId);
+    }
+    this.selectedIds = [node.id];
+    this.post({
+      type: "revealNode",
+      nodeId: node.id,
+      ancestors,
+      selectedIds: [node.id],
+    });
+    this.fireSelectionChanged();
+  }
 
-	public resolveWebviewView(
-		webviewView: vscode.WebviewView,
-		_context: vscode.WebviewViewResolveContext,
-		_token: vscode.CancellationToken,
-	): void {
-		this.webviewView = webviewView;
-		webviewView.webview.options = {
-			enableScripts: true,
-			localResourceRoots: [
-				vscode.Uri.joinPath(this.extensionUri, "assets"),
-				vscode.Uri.joinPath(this.extensionUri, "resources"),
-			],
-		};
-		const assetBase = webviewView.webview.asWebviewUri(
-			vscode.Uri.joinPath(this.extensionUri, "assets")
-		).toString();
-		webviewView.webview.html = this.buildHtml(webviewView.webview, assetBase);
-		webviewView.webview.onDidReceiveMessage(m => this.onMessage(m));
-		webviewView.onDidDispose(() => { this.webviewView = undefined; });
-		this.pushTree();
-	}
+  public resolveWebviewView(
+    webviewView: vscode.WebviewView,
+    _context: vscode.WebviewViewResolveContext,
+    _token: vscode.CancellationToken,
+  ): void {
+    this.webviewView = webviewView;
+    webviewView.webview.options = {
+      enableScripts: true,
+      localResourceRoots: [
+        vscode.Uri.joinPath(this.extensionUri, "assets"),
+        vscode.Uri.joinPath(this.extensionUri, "resources"),
+      ],
+    };
+    webviewView.webview.onDidReceiveMessage(m => this.onMessage(m));
+    webviewView.onDidDispose(() => { this.webviewView = undefined; });
+    const assetBase = webviewView.webview.asWebviewUri(
+      vscode.Uri.joinPath(this.extensionUri, "assets")
+    ).toString();
+    webviewView.webview.html = this.buildHtml(webviewView.webview, assetBase);
+    this.pushTree();
+  }
 
-	public refreshWebviewHtml(): void {
-		if (!this.webviewView) return;
-		const assetBase = this.webviewView.webview.asWebviewUri(
-			vscode.Uri.joinPath(this.extensionUri, "assets")
-		).toString();
-		this.webviewView.webview.html = this.buildHtml(this.webviewView.webview, assetBase);
-		this.pushTree();
-	}
+  public refreshWebviewHtml(): void {
+    if (!this.webviewView) return;
+    const assetBase = this.webviewView.webview.asWebviewUri(
+      vscode.Uri.joinPath(this.extensionUri, "assets")
+    ).toString();
+    this.webviewView.webview.html = this.buildHtml(this.webviewView.webview, assetBase);
+    this.pushTree();
+  }
 
-	private post(msg: unknown): void {
-		this.webviewView?.webview.postMessage(msg);
-	}
+  private post(msg: unknown): void {
+    this.webviewView?.webview.postMessage(msg);
+  }
 
-	private pushTree(): void {
-		if (!this.webviewView) return;
-		const all = this.explorerProvider.getAllNodes();
-		const nodes: Record<string, WebviewNode> = {};
-		for (const n of all) {
-			const sorted = this.explorerProvider.getSortedChildren(n.id);
-			nodes[n.id] = {
-				id: n.id,
-				name: n.name,
-				className: n.className,
-				children: sorted.map(c => c.id),
-				isScript: isScriptClass(n.className),
-			};
-		}
-		const roots = this.explorerProvider.getSortedChildren(null);
-		this.post({
-			type: "updateTree",
-			nodes,
-			rootIds: roots.map(c => c.id),
-			selectedIds: this.selectedIds,
-		});
-	}
+  private pushTree(): void {
+    if (!this.webviewView) return;
+    const all = this.explorerProvider.getAllNodes();
+    const nodes: Record<string, WebviewNode> = {};
+    for (const n of all) {
+      const sorted = this.explorerProvider.getSortedChildren(n.id);
+      nodes[n.id] = {
+        id: n.id,
+        name: n.name,
+        className: n.className,
+        children: sorted.map(c => c.id),
+        isScript: isScriptClass(n.className),
+      };
+    }
+    const roots = this.explorerProvider.getSortedChildren(null);
+    this.post({
+      type: "updateTree",
+      nodes,
+      rootIds: roots.map(c => c.id),
+      selectedIds: this.selectedIds,
+    });
+  }
 
-	private fireSelectionChanged(): void {
-		const nodes = this.getSelection();
-		for (const cb of this.selectionListeners) cb(nodes);
-	}
+  private fireSelectionChanged(): void {
+    const nodes = this.getSelection();
+    for (const cb of this.selectionListeners) cb(nodes);
+  }
 
-	private onMessage(msg: any): void {
-		switch (msg.type) {
-			case "selectionChanged":
-				this.selectedIds = msg.nodeIds ?? [];
-				this.fireSelectionChanged();
-				break;
-			case "createInstance":
-				this.doCreateInstance(msg.parentId, msg.className);
-				break;
-			case "renameInstance": {
-				const node = msg.nodeId ? this.explorerProvider.getNodeById(msg.nodeId) : undefined;
-				if (node && typeof msg.newName === "string") {
-					vscode.commands.executeCommand("verde.renameInstance", node, msg.newName);
-				}
-				break;
-			}
-			case "runCommand": {
-				const node = msg.nodeId ? this.explorerProvider.getNodeById(msg.nodeId) : undefined;
-				if (node) {
-					vscode.commands.executeCommand(msg.command, node);
-				} else {
-					vscode.commands.executeCommand(msg.command);
-				}
-				break;
-			}
-			case "scriptActivated": {
-				const node = this.explorerProvider.getNodeById(msg.nodeId);
-				if (node) vscode.commands.executeCommand("verde.openScript", node);
-				break;
-			}
-			case "reparentNode": {
-				const nodeId = msg.nodeId as string | undefined;
-				const newParentId = msg.newParentId as string | undefined;
-				if (nodeId == null) break;
-				this.backend.sendOperation({
-					type: "move_node",
-					nodeId,
-					newParentId: newParentId ?? null,
-				}).then((result) => {
-					if (!result.success) {
-						vscode.window.showErrorMessage(result.error ?? "Failed to move instance.");
-					}
-				}).catch((err) => {
-					vscode.window.showErrorMessage(String(err));
-				});
-				break;
-			}
-		}
-	}
+  private onMessage(msg: any): void {
+    switch (msg.type) {
+      case "selectionChanged":
+        this.selectedIds = msg.nodeIds ?? [];
+        this.fireSelectionChanged();
+        break;
+      case "createInstance":
+        this.doCreateInstance(msg.parentId, msg.className);
+        break;
+      case "renameInstance": {
+        const node = msg.nodeId ? this.explorerProvider.getNodeById(msg.nodeId) : undefined;
+        if (node && typeof msg.newName === "string") {
+          vscode.commands.executeCommand("verde.renameInstance", node, msg.newName);
+        }
+        break;
+      }
+      case "runCommand": {
+        const node = msg.nodeId ? this.explorerProvider.getNodeById(msg.nodeId) : undefined;
+        if (node) {
+          vscode.commands.executeCommand(msg.command, node);
+        } else {
+          vscode.commands.executeCommand(msg.command);
+        }
+        break;
+      }
+      case "scriptActivated": {
+        const node = this.explorerProvider.getNodeById(msg.nodeId);
+        if (node) vscode.commands.executeCommand("verde.openScript", node);
+        break;
+      }
+      case "reparentNode": {
+        const nodeId = msg.nodeId as string | undefined;
+        const newParentId = msg.newParentId as string | undefined;
+        if (nodeId == null) break;
+        this.backend.sendOperation({
+          type: "move_node",
+          nodeId,
+          newParentId: newParentId ?? null,
+        }).then((result) => {
+          if (!result.success) {
+            vscode.window.showErrorMessage(result.error ?? "Failed to move instance.");
+          }
+        }).catch((err) => {
+          vscode.window.showErrorMessage(String(err));
+        });
+        break;
+      }
+    }
+  }
 
-	private async waitForNode(nodeId: string, timeoutMs: number = 3000): Promise<Node | null> {
-		const start = Date.now();
-		while (Date.now() - start < timeoutMs) {
-			const node = this.explorerProvider.getNodeById(nodeId);
-			if (node) return node;
-			await new Promise((r) => setTimeout(r, 50));
-		}
-		return null;
-	}
+  private async waitForNode(nodeId: string, timeoutMs: number = 3000): Promise<Node | null> {
+    const start = Date.now();
+    while (Date.now() - start < timeoutMs) {
+      const node = this.explorerProvider.getNodeById(nodeId);
+      if (node) return node;
+      await new Promise((r) => setTimeout(r, 50));
+    }
+    return null;
+  }
 
-	private async doCreateInstance(parentId: string, className: string): Promise<void> {
-		try {
-			const result = await this.backend.sendOperation({
-				type: "create_instance",
-				parentId,
-				className,
-			});
-			if (!result.success) {
-				vscode.window.showErrorMessage(`Failed to create instance: ${result.error}`);
-				return;
-			}
-			if (result.data && typeof result.data === "string") {
-				const newNode = await this.waitForNode(result.data);
-				if (newNode) {
-					this.reveal(newNode);
-					this.post({ type: "focusTree" });
-					if (isScriptClass(newNode.className)) {
-						vscode.commands.executeCommand("verde.openScript", newNode);
-					}
-				}
-			}
-		} catch (e) {
-			vscode.window.showErrorMessage(`Failed to create instance: ${String(e)}`);
-		}
-	}
+  private async doCreateInstance(parentId: string, className: string): Promise<void> {
+    try {
+      const result = await this.backend.sendOperation({
+        type: "create_instance",
+        parentId,
+        className,
+      });
+      if (!result.success) {
+        vscode.window.showErrorMessage(`Failed to create instance: ${result.error}`);
+        return;
+      }
+      if (result.data && typeof result.data === "string") {
+        const newNode = await this.waitForNode(result.data);
+        if (newNode) {
+          this.reveal(newNode);
+          this.post({ type: "focusTree" });
+          if (isScriptClass(newNode.className)) {
+            vscode.commands.executeCommand("verde.openScript", newNode);
+          }
+        }
+      }
+    } catch (e) {
+      vscode.window.showErrorMessage(`Failed to create instance: ${String(e)}`);
+    }
+  }
 
-	private buildHtml(webview: vscode.Webview, assetBase: string): string {
-		const csp = webview.cspSource;
-		const themeStyle = getThemeStyleAttribute();
-		const themeCss = getThemeCssBlock();
-		return `<!DOCTYPE html>
+  private buildHtml(webview: vscode.Webview, assetBase: string): string {
+    const csp = webview.cspSource;
+    const themeStyle = getThemeStyleAttribute();
+    const themeCss = getThemeCssBlock();
+    return `<!DOCTYPE html>
 <html lang="en" style="${themeStyle}">
 <head>
 <meta charset="UTF-8">
@@ -652,5 +652,5 @@ document.addEventListener('keydown',function(e){
 </script>
 </body>
 </html>`;
-	}
+  }
 }
