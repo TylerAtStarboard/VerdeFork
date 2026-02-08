@@ -156,6 +156,23 @@ export class ExplorerViewProvider implements vscode.WebviewViewProvider {
 				if (node) vscode.commands.executeCommand("verde.openScript", node);
 				break;
 			}
+			case "reparentNode": {
+				const nodeId = msg.nodeId as string | undefined;
+				const newParentId = msg.newParentId as string | undefined;
+				if (nodeId == null) break;
+				this.backend.sendOperation({
+					type: "move_node",
+					nodeId,
+					newParentId: newParentId ?? null,
+				}).then((result) => {
+					if (!result.success) {
+						vscode.window.showErrorMessage(result.error ?? "Failed to move instance.");
+					}
+				}).catch((err) => {
+					vscode.window.showErrorMessage(String(err));
+				});
+				break;
+			}
 		}
 	}
 
@@ -220,6 +237,8 @@ body{display:flex;flex-direction:column}
 .tree-row:hover{background:var(--vscode-list-hoverBackground)}
 .tree-row.selected{background:rgba(14,99,156,.35);color:var(--vscode-list-activeSelectionForeground,#fff)}
 #tree:focus-within .tree-row.selected{background:rgba(14,99,156,.4);color:var(--vscode-list-activeSelectionForeground,#fff)}
+.tree-row.dragging{opacity:0.5}
+.tree-row.drag-over{background:rgba(14,99,156,0.25);outline:1px solid var(--vscode-focusBorder)}
 
 .tree-arrow{width:16px;height:22px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;font-size:9px;opacity:.7}
 .tree-arrow:hover{opacity:1}
@@ -283,6 +302,7 @@ var ctxNodeId=null;
 var renameNodeId=null;
 
 var expandedIds=new Set();
+var dragSourceId=null;
 var saved=vscode.getState();
 if(saved&&Array.isArray(saved.exp))expandedIds=new Set(saved.exp);
 function saveExp(){vscode.setState({exp:[...expandedIds]})}
@@ -399,7 +419,7 @@ function buildRow(id,depth,h){
     }
     style+=';background-image:'+bgs.join(',')+';background-position:'+pos.join(',')+';background-size:'+sz.join(',')+';background-repeat:no-repeat';
   }
-  h.push('<div class="'+rowClass+'" data-id="'+id+'" data-s="'+(n.isScript?1:0)+'" style="'+style+'">');
+  h.push('<div class="'+rowClass+'" data-id="'+id+'" data-s="'+(n.isScript?1:0)+'" draggable="'+(depth>0?'true':'false')+'" style="'+style+'">');
   h.push('<span class="tree-arrow'+ac+'"></span>');
   h.push('<img class="tree-icon" src="'+ASSET+'/'+esc(n.className)+'.png">');
   h.push('<span class="tree-name-group">');
@@ -452,6 +472,44 @@ treeEl.addEventListener('contextmenu',function(e){
   var id=row.dataset.id;
   if(selectedIds.indexOf(id)<0){selectedIds=[id];updateSelVis();vscode.postMessage({type:'selectionChanged',nodeIds:[id]})}
   showCtx(e.clientX,e.clientY,id,row.dataset.s==='1');
+});
+
+/* ---- drag and drop ---- */
+function clearDragOver(){treeEl.querySelectorAll('.tree-row').forEach(function(r){r.classList.remove('drag-over')})}
+treeEl.addEventListener('dragstart',function(e){
+  if(e.target.closest('.tree-arrow,.tree-add-btn,.tree-rename-input')){e.preventDefault();return}
+  var row=e.target.closest('.tree-row');if(!row)return;
+  dragSourceId=row.dataset.id;
+  e.dataTransfer.setData('text/plain',dragSourceId);
+  e.dataTransfer.effectAllowed='move';
+  row.classList.add('dragging');
+});
+treeEl.addEventListener('dragend',function(e){
+  dragSourceId=null;
+  treeEl.querySelectorAll('.tree-row').forEach(function(r){r.classList.remove('dragging')});
+  clearDragOver();
+});
+treeEl.addEventListener('dragover',function(e){
+  e.preventDefault();
+  var row=e.target.closest('.tree-row');if(!row)return;
+  var targetId=row.dataset.id;
+  if(!dragSourceId||dragSourceId===targetId){e.dataTransfer.dropEffect='none';clearDragOver();return}
+  e.dataTransfer.dropEffect='move';
+  clearDragOver();
+  row.classList.add('drag-over');
+});
+treeEl.addEventListener('dragleave',function(e){
+  var row=e.target.closest('.tree-row');
+  if(row&&!row.contains(e.relatedTarget))row.classList.remove('drag-over');
+});
+treeEl.addEventListener('drop',function(e){
+  e.preventDefault();
+  clearDragOver();
+  var row=e.target.closest('.tree-row');if(!row)return;
+  var targetId=row.dataset.id;
+  var sourceId=dragSourceId||e.dataTransfer.getData('text/plain');
+  if(!sourceId||sourceId===targetId)return;
+  vscode.postMessage({type:'reparentNode',nodeId:sourceId,newParentId:targetId});
 });
 
 /* ---- context menu ---- */
