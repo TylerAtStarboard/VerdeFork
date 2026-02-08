@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import * as fs from "fs";
 import * as path from "path";
+import { getThemeCssBlock, getThemeStyleAttribute } from "./webviewTheme";
 
 export interface PropertiesHtmlOptions {
     showToggleButton?: boolean;
@@ -33,8 +34,9 @@ export function getPropertiesHtml(extensionUri: vscode.Uri, options: PropertiesH
     try {
         let htmlContent = fs.readFileSync(htmlPath, 'utf8');
 
-        const styleTag = `<style>${cssContent}</style>`;
+        const styleTag = `<style>${getThemeCssBlock()}${cssContent}</style>`;
         const sortersScriptTag = `<script>\n${sortersContent}\n</script>`;
+        htmlContent = htmlContent.replace('[[themeStyle]]', getThemeStyleAttribute());
         htmlContent = htmlContent.replace('<link href="[[styleUri]]" rel="stylesheet">', styleTag);
         htmlContent = htmlContent.replace('<script>', `${sortersScriptTag}\n<script>`);
         htmlContent = htmlContent.replace('[[topbarHtml]]', getTopbarHtml(options));
@@ -45,12 +47,12 @@ export function getPropertiesHtml(extensionUri: vscode.Uri, options: PropertiesH
     } catch (error) {
         console.error("Failed to read properties.html:", error);
         return `<!DOCTYPE html>
-<html>
+<html style="${getThemeStyleAttribute()}">
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>Properties</title>
-	<style>${cssContent}</style>
+	<style>${getThemeCssBlock()}${cssContent}</style>
 </head>
 <body>
 	<div class="root">

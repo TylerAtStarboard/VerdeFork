@@ -3,6 +3,7 @@ import { RobloxExplorerProvider, Node } from "./robloxExplorerProvider";
 import { VerdeBackend } from "./backend";
 import { ROBLOX_CLASS_NAMES } from "./robloxClasses";
 import { isScriptClass } from "./utils";
+import { getThemeCssBlock, getThemeStyleAttribute } from "./webviewTheme";
 
 type WebviewNode = {
 	id: string;
@@ -81,6 +82,15 @@ export class ExplorerViewProvider implements vscode.WebviewViewProvider {
 		webviewView.webview.html = this.buildHtml(webviewView.webview, assetBase);
 		webviewView.webview.onDidReceiveMessage(m => this.onMessage(m));
 		webviewView.onDidDispose(() => { this.webviewView = undefined; });
+		this.pushTree();
+	}
+
+	public refreshWebviewHtml(): void {
+		if (!this.webviewView) return;
+		const assetBase = this.webviewView.webview.asWebviewUri(
+			vscode.Uri.joinPath(this.extensionUri, "assets")
+		).toString();
+		this.webviewView.webview.html = this.buildHtml(this.webviewView.webview, assetBase);
 		this.pushTree();
 	}
 
@@ -187,15 +197,18 @@ export class ExplorerViewProvider implements vscode.WebviewViewProvider {
 
 	private buildHtml(webview: vscode.Webview, assetBase: string): string {
 		const csp = webview.cspSource;
+		const themeStyle = getThemeStyleAttribute();
+		const themeCss = getThemeCssBlock();
 		return `<!DOCTYPE html>
-<html lang="en">
+<html lang="en" style="${themeStyle}">
 <head>
 <meta charset="UTF-8">
 <meta http-equiv="Content-Security-Policy"
   content="default-src 'none'; img-src ${csp}; style-src 'unsafe-inline'; script-src 'unsafe-inline';">
 <style>
+${themeCss}
 *{margin:0;padding:0;box-sizing:border-box}
-html,body{height:100%;overflow:hidden;font-family:var(--vscode-font-family,sans-serif);font-size:var(--vscode-font-size,13px);color:var(--vscode-foreground);background:var(--vscode-sideBar-background)}
+html,body{height:100%;overflow:hidden;font-family:var(--vscode-font-family,sans-serif);font-size:var(--vscode-font-size,13px);color:var(--vscode-sideBar-foreground);background:var(--vscode-sideBar-background)}
 body{display:flex;flex-direction:column}
 
 #search-bar{padding:4px 4px;flex-shrink:0;background:var(--vscode-sideBar-background)}
@@ -234,12 +247,12 @@ body{display:flex;flex-direction:column}
 #quick-add{position:fixed;top:0;left:0;z-index:2000;pointer-events:none}
 #quick-add.hidden{display:none}
 #qa-panel{pointer-events:auto;position:fixed;width:280px;max-height:320px;background:var(--vscode-sideBar-background);border:1px solid var(--vscode-widget-border);box-shadow:0 2px 8px rgba(0,0,0,.15);display:flex;flex-direction:column;border-radius:4px;overflow:hidden}
-#qa-search{width:100%;border:none;border-bottom:1px solid var(--vscode-widget-border);background:var(--vscode-sideBar-background);color:var(--vscode-foreground);padding:8px 10px;outline:none;font:inherit}
+#qa-search{width:100%;border:none;border-bottom:1px solid var(--vscode-widget-border);background:var(--vscode-sideBar-background);color:var(--vscode-sideBar-foreground);padding:8px 10px;outline:none;font:inherit}
 #qa-search::placeholder{color:var(--vscode-input-placeholderForeground)}
 #qa-search:focus{border-bottom-color:var(--vscode-focusBorder)}
 #qa-list-wrap{overflow-y:auto;flex:1;min-height:0}
-.qa-section{font-size:11px;font-weight:600;color:var(--vscode-foreground);padding:6px 10px 4px;text-transform:uppercase;letter-spacing:0.5px}
-.qa-item{display:flex;align-items:center;padding:5px 10px;cursor:pointer;height:28px;color:var(--vscode-foreground)}
+.qa-section{font-size:11px;font-weight:600;color:var(--vscode-sideBar-foreground);padding:6px 10px 4px;text-transform:uppercase;letter-spacing:0.5px}
+.qa-item{display:flex;align-items:center;padding:5px 10px;cursor:pointer;height:28px;color:var(--vscode-sideBar-foreground)}
 .qa-item.selected{background:var(--vscode-list-activeSelectionBackground);color:var(--vscode-list-activeSelectionForeground)}
 .qa-item:not(.selected):hover{background:var(--vscode-list-hoverBackground)}
 .qa-icon{width:16px;height:16px;margin-right:8px;image-rendering:pixelated;flex-shrink:0}

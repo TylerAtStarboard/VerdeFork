@@ -89,6 +89,13 @@ export async function activate(context: vscode.ExtensionContext) {
 		vscode.window.registerWebviewViewProvider(ExplorerViewProvider.viewType, explorerViewProvider)
 	);
 
+	context.subscriptions.push(
+		vscode.window.onDidChangeActiveColorTheme(() => {
+			explorerViewProvider.refreshWebviewHtml();
+			propertiesViewProvider.refreshWebviewHtml();
+		})
+	);
+
 	explorerViewProvider.onSelectionChanged((selection) => {
 		if (selection.length === 1) {
 			const node = selection[0];

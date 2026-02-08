@@ -79,6 +79,19 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
 		});
 	}
 
+	public refreshWebviewHtml(): void {
+		if (this.webviewView) {
+			this.webviewView.webview.html = getPropertiesHtml(this.extensionUri, { showToggleButton: true });
+			if (this.currentNodeId) {
+				setTimeout(() => this.loadProperties(), 100);
+			}
+		}
+		if (this.separatePanel) {
+			this.separatePanel.webview.html = getPropertiesHtml(this.extensionUri, { showToggleButton: true });
+			this.loadPropertiesForPanel(this.separatePanel.webview);
+		}
+	}
+
 	public show(node: Node): void {
 		if (this.currentNodeId && this.currentNodeId !== node.id) {
 			this.backend.sendOperation({ type: "deselect_instance" }).catch(() => {
