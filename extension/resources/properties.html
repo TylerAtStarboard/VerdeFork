@@ -84,6 +84,17 @@
         let audioPlaying = false;
         let audioScrubbing = false;
 
+        function themeColor(name, fallbackName) {
+            const root = getComputedStyle(document.documentElement);
+            const body = getComputedStyle(document.body);
+            return (
+                body.getPropertyValue(name).trim() ||
+                root.getPropertyValue(name).trim() ||
+                (fallbackName ? body.getPropertyValue(fallbackName).trim() : "") ||
+                (fallbackName ? root.getPropertyValue(fallbackName).trim() : "")
+            );
+        }
+
         const container = document.getElementById("properties-container");
         [[scriptElements]]
 
@@ -1512,13 +1523,13 @@
             const padding = 30;
 
             curveCtx.clearRect(0, 0, width, height);
-            curveCtx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--vscode-editor-background') || '#1e1e1e';
+            curveCtx.fillStyle = themeColor('--vscode-editor-background', '--vscode-sideBar-background');
             curveCtx.fillRect(0, 0, width, height);
 
             const drawWidth = width - padding * 2;
             const drawHeight = height - padding * 2;
 
-            curveCtx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--vscode-panel-border') || '#3e3e3e';
+            curveCtx.strokeStyle = themeColor('--vscode-panel-border', '--vscode-sideBar-border');
             curveCtx.lineWidth = 1;
 
             for (let i = 0; i <= 10; i++) {
@@ -1538,7 +1549,7 @@
             if (currentCurveNodes.length > 0) {
                 const sortedIndices = currentCurveNodes.map((_, i) => i).sort((a, b) => currentCurveNodes[a].t - currentCurveNodes[b].t);
 
-                curveCtx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--vscode-textLink-foreground') || '#4fc3f7';
+                curveCtx.strokeStyle = themeColor('--vscode-textLink-foreground', '--vscode-focusBorder');
                 curveCtx.lineWidth = 2;
                 curveCtx.beginPath();
 
@@ -1566,13 +1577,15 @@
                     const isSelected = selectedNodeIndex === idx;
                     const nodeRadius = 7;
 
-                    curveCtx.fillStyle = isSelected ? '#ff6b6b' : '#4fc3f7';
+                    curveCtx.fillStyle = isSelected
+                        ? themeColor('--vscode-list-activeSelectionBackground', '--vscode-focusBorder')
+                        : themeColor('--vscode-textLink-foreground', '--vscode-focusBorder');
                     curveCtx.beginPath();
                     curveCtx.arc(x, y, nodeRadius, 0, Math.PI * 2);
                     curveCtx.fill();
 
                     if (isSelected) {
-                        curveCtx.strokeStyle = '#ff6b6b';
+                        curveCtx.strokeStyle = themeColor('--vscode-list-activeSelectionBackground', '--vscode-focusBorder');
                         curveCtx.lineWidth = 2;
                         curveCtx.stroke();
                     }

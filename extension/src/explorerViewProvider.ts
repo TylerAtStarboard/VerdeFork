@@ -3,7 +3,7 @@ import { RobloxExplorerProvider, Node } from "./robloxExplorerProvider";
 import { VerdeBackend } from "./backend";
 import { ROBLOX_CLASS_NAMES } from "./robloxClasses";
 import { isScriptClass } from "./utils";
-import { getThemeCssBlock, getThemeStyleAttribute } from "./webviewTheme";
+import { getThemeCssBlock, getThemeScriptBlock, getThemeStyleAttribute } from "./webviewTheme";
 
 type WebviewNode = {
   id: string;
@@ -216,6 +216,7 @@ export class ExplorerViewProvider implements vscode.WebviewViewProvider {
     const csp = webview.cspSource;
     const themeStyle = getThemeStyleAttribute();
     const themeCss = getThemeCssBlock();
+    const themeScript = getThemeScriptBlock();
     return `<!DOCTYPE html>
 <html lang="en" style="${themeStyle}">
 <head>
@@ -235,10 +236,10 @@ body{display:flex;flex-direction:column}
 #tree{flex:1;overflow-y:auto;overflow-x:hidden;outline:none;padding:0;background:var(--vscode-sideBar-background)}
 .tree-row{display:flex;align-items:center;height:22px;cursor:pointer;padding-right:0;white-space:nowrap;user-select:none}
 .tree-row:hover{background:var(--vscode-list-hoverBackground)}
-.tree-row.selected{background:rgba(14,99,156,.35);color:var(--vscode-list-activeSelectionForeground,#fff)}
-#tree:focus-within .tree-row.selected{background:rgba(14,99,156,.4);color:var(--vscode-list-activeSelectionForeground,#fff)}
+.tree-row.selected{background:var(--vscode-list-inactiveSelectionBackground);color:var(--vscode-list-inactiveSelectionForeground)}
+#tree:focus-within .tree-row.selected{background:var(--vscode-list-activeSelectionBackground);color:var(--vscode-list-activeSelectionForeground)}
 .tree-row.dragging{opacity:0.5}
-.tree-row.drag-over{background:rgba(14,99,156,0.25);outline:1px solid var(--vscode-focusBorder)}
+.tree-row.drag-over{background:var(--vscode-list-dropBackground);outline:1px solid var(--vscode-focusBorder)}
 
 .tree-arrow{width:16px;height:22px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;font-size:9px;opacity:.7}
 .tree-arrow:hover{opacity:1}
@@ -257,15 +258,15 @@ body{display:flex;flex-direction:column}
 .tree-row:hover .tree-add-btn{display:inline-flex}
 .tree-add-btn:hover{background:var(--vscode-button-secondaryHoverBackground)}
 
-#ctx-menu{position:fixed;z-index:1000;background:var(--vscode-menu-background,var(--vscode-editor-background));border:1px solid var(--vscode-menu-border,var(--vscode-widget-border,#454545));box-shadow:0 2px 8px rgba(0,0,0,.3);min-width:160px;padding:4px 0;border-radius:4px}
+#ctx-menu{position:fixed;z-index:1000;background:var(--vscode-menu-background);border:1px solid var(--vscode-menu-border);min-width:160px;padding:4px 0;border-radius:4px}
 #ctx-menu.hidden{display:none}
-.ctx-item{padding:4px 20px 4px 10px;cursor:pointer;white-space:nowrap;color:var(--vscode-menu-foreground,var(--vscode-foreground))}
-.ctx-item:hover{background:var(--vscode-menu-selectionBackground,var(--vscode-list-activeSelectionBackground));color:var(--vscode-menu-selectionForeground,var(--vscode-list-activeSelectionForeground))}
-.ctx-sep{height:1px;margin:4px 0;background:var(--vscode-menu-separatorBackground,var(--vscode-widget-border,#454545))}
+.ctx-item{padding:4px 20px 4px 10px;cursor:pointer;white-space:nowrap;color:var(--vscode-menu-foreground)}
+.ctx-item:hover{background:var(--vscode-menu-selectionBackground);color:var(--vscode-menu-selectionForeground)}
+.ctx-sep{height:1px;margin:4px 0;background:var(--vscode-menu-separatorBackground)}
 
 #quick-add{position:fixed;top:0;left:0;z-index:2000;pointer-events:none}
 #quick-add.hidden{display:none}
-#qa-panel{pointer-events:auto;position:fixed;width:280px;max-height:320px;background:var(--vscode-sideBar-background);border:1px solid var(--vscode-widget-border);box-shadow:0 2px 8px rgba(0,0,0,.15);display:flex;flex-direction:column;border-radius:4px;overflow:hidden}
+#qa-panel{pointer-events:auto;position:fixed;width:280px;max-height:320px;background:var(--vscode-sideBar-background);border:1px solid var(--vscode-widget-border);display:flex;flex-direction:column;border-radius:4px;overflow:hidden}
 #qa-search{width:100%;border:none;border-bottom:1px solid var(--vscode-widget-border);background:var(--vscode-sideBar-background);color:var(--vscode-sideBar-foreground);padding:8px 10px;outline:none;font:inherit}
 #qa-search::placeholder{color:var(--vscode-input-placeholderForeground)}
 #qa-search:focus{border-bottom-color:var(--vscode-focusBorder)}
@@ -276,6 +277,7 @@ body{display:flex;flex-direction:column}
 .qa-item:not(.selected):hover{background:var(--vscode-list-hoverBackground)}
 .qa-icon{width:16px;height:16px;margin-right:8px;image-rendering:pixelated;flex-shrink:0}
 </style>
+${themeScript}
 </head>
 <body>
 <div id="search-bar"><input id="search" type="text" placeholder="Search explorer..." spellcheck="false" /></div>
@@ -399,7 +401,7 @@ function renderTree(){
   if(renameNodeId)afterRenameInputMount();
 }
 var INDENT=12;
-var LINE_COLOR='var(--vscode-tree-indentGuidesStroke, rgba(128,128,128,0.35))';
+var LINE_COLOR='var(--vscode-tree-indentGuidesStroke)';
 function buildRow(id,depth,h){
   if(searchFilter&&!isVis(id))return;
   var n=nodes[id];if(!n)return;

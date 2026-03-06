@@ -3,6 +3,7 @@ out/
 *.vsix
 
 sourcemap.json
+package-lock.json
 
 *.code-workspace
 scripts/

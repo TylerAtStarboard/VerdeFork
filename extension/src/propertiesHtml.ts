@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import * as fs from "fs";
 import * as path from "path";
-import { getThemeCssBlock, getThemeStyleAttribute } from "./webviewTheme";
+import { getThemeCssBlock, getThemeScriptBlock, getThemeStyleAttribute } from "./webviewTheme";
 
 export interface PropertiesHtmlOptions {
     showToggleButton?: boolean;
@@ -35,10 +35,11 @@ export function getPropertiesHtml(extensionUri: vscode.Uri, options: PropertiesH
         let htmlContent = fs.readFileSync(htmlPath, 'utf8');
 
         const styleTag = `<style>${getThemeCssBlock()}${cssContent}</style>`;
+        const themeScriptTag = getThemeScriptBlock();
         const sortersScriptTag = `<script>\n${sortersContent}\n</script>`;
         htmlContent = htmlContent.replace('[[themeStyle]]', getThemeStyleAttribute());
         htmlContent = htmlContent.replace('<link href="[[styleUri]]" rel="stylesheet">', styleTag);
-        htmlContent = htmlContent.replace('<script>', `${sortersScriptTag}\n<script>`);
+        htmlContent = htmlContent.replace('<script>', `${sortersScriptTag}\n${themeScriptTag}\n<script>`);
         htmlContent = htmlContent.replace('[[topbarHtml]]', getTopbarHtml(options));
         htmlContent = htmlContent.replace('[[scriptElements]]', getScriptElements(options));
         htmlContent = htmlContent.replace('[[filterLogic]]', getFilterLogic(options));
@@ -46,6 +47,7 @@ export function getPropertiesHtml(extensionUri: vscode.Uri, options: PropertiesH
         return htmlContent;
     } catch (error) {
         console.error("Failed to read properties.html:", error);
+        const themeScriptTag = getThemeScriptBlock();
         return `<!DOCTYPE html>
 <html style="${getThemeStyleAttribute()}">
 <head>
@@ -53,6 +55,7 @@ export function getPropertiesHtml(extensionUri: vscode.Uri, options: PropertiesH
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>Properties</title>
 	<style>${getThemeCssBlock()}${cssContent}</style>
+	${themeScriptTag}
 </head>
 <body>
 	<div class="root">
