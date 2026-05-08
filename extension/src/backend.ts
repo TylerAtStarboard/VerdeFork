@@ -72,7 +72,7 @@ export type TextRange = {
 export type ExplorerDeltaOp =
     | { type: "add_subtree"; timestamp: number; parentId: string | null; rootId: string; nodes: Snapshot["nodes"] }
     | { type: "remove_node"; timestamp: number; id: string }
-    | { type: "update_node"; timestamp: number; id: string; name?: string }
+    | { type: "update_node"; timestamp: number; id: string; name?: string; disabled?: boolean }
     | { type: "move_node"; timestamp: number; id: string; newParentId: string | null };
 
 type RobloxInboundMessage =
@@ -96,7 +96,7 @@ export class VerdeBackend {
     private readonly onSnapshotReceived: (snapshot: Snapshot) => void;
     private readonly onDeltaReceived?: (ops: ExplorerDeltaOp[], addedRootIds?: string[]) => void;
     private readonly onConnectionLost?: () => void;
-    private onPropertyUpdate?: (nodeId: string, properties: PropertiesData) => void;
+    private readonly propertyUpdateCallbacks: ((nodeId: string, properties: PropertiesData) => void)[] = [];
 
     private webSocketServer: WebSocketServer | null = null;
     private clients: Set<WebSocket> = new Set();
@@ -249,7 +249,7 @@ export class VerdeBackend {
     }
 
     public setPropertyUpdateCallback(callback: (nodeId: string, properties: PropertiesData) => void): void {
-        this.onPropertyUpdate = callback;
+        this.propertyUpdateCallbacks.push(callback);
     }
 
     public async setProperty(nodeId: string, propertyName: string, propertyValue: any): Promise<void> {
@@ -430,8 +430,8 @@ export class VerdeBackend {
             case "property_update": {
                 this.lastAckTime = Date.now();
                 const propertyUpdateMessage = message as { type: "property_update"; nodeId: string; properties: PropertiesData; requestId?: string };
-                if (this.onPropertyUpdate) {
-                    this.onPropertyUpdate(propertyUpdateMessage.nodeId, propertyUpdateMessage.properties);
+                for (const callback of this.propertyUpdateCallbacks) {
+                    callback(propertyUpdateMessage.nodeId, propertyUpdateMessage.properties);
                 }
                 this.send(socket, { type: "ack", requestId: propertyUpdateMessage.requestId });
                 return;

@@ -11,6 +11,7 @@ type WebviewNode = {
   className: string;
   children: string[];
   isScript: boolean;
+  disabled?: boolean;
 };
 
 export class ExplorerViewProvider implements vscode.WebviewViewProvider {
@@ -104,13 +105,18 @@ export class ExplorerViewProvider implements vscode.WebviewViewProvider {
     const nodes: Record<string, WebviewNode> = {};
     for (const n of all) {
       const sorted = this.explorerProvider.getSortedChildren(n.id);
-      nodes[n.id] = {
+      const isScript = isScriptClass(n.className);
+      const w: WebviewNode = {
         id: n.id,
         name: n.name,
         className: n.className,
         children: sorted.map(c => c.id),
-        isScript: isScriptClass(n.className),
+        isScript,
       };
+      if (isScript) {
+        w.disabled = !!n.disabled;
+      }
+      nodes[n.id] = w;
     }
     const roots = this.explorerProvider.getSortedChildren(null);
     this.post({
@@ -248,6 +254,8 @@ body{display:flex;flex-direction:column}
 .tree-arrow.leaf{visibility:hidden;pointer-events:none}
 
 .tree-icon{width:16px;height:16px;flex-shrink:0;margin-right:4px;image-rendering:pixelated}
+.tree-row.script-disabled .tree-icon{opacity:.45!important}
+.tree-row.script-disabled .tree-name{color:var(--vscode-disabledForeground,var(--vscode-descriptionForeground))!important;opacity:.65!important}
 .tree-row.tree-indent-guides{background-repeat:no-repeat}
 .tree-name-group{flex:1;min-width:0;display:flex;align-items:center;gap:6px}
 .tree-name{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -410,7 +418,8 @@ function buildRow(id,depth,h){
   var sel=selectedIds.indexOf(id)>=0;
   var pad=depth*INDENT;
   var ac=has?(exp?' expanded':''):' leaf';
-  var rowClass='tree-row'+(sel?' selected':'')+(depth>0?' tree-indent-guides':'');
+  var disabled=n.isScript&&n.disabled===true;
+  var rowClass='tree-row'+(sel?' selected':'')+(depth>0?' tree-indent-guides':'')+(disabled?' script-disabled':'');
   var style='padding-left:'+pad+'px';
   if(depth>0){
     var bgs=[],pos=[],sz=[];
@@ -421,14 +430,14 @@ function buildRow(id,depth,h){
     }
     style+=';background-image:'+bgs.join(',')+';background-position:'+pos.join(',')+';background-size:'+sz.join(',')+';background-repeat:no-repeat';
   }
-  h.push('<div class="'+rowClass+'" data-id="'+id+'" data-s="'+(n.isScript?1:0)+'" draggable="'+(depth>0?'true':'false')+'" style="'+style+'">');
+  h.push('<div class="'+rowClass+'" data-id="'+id+'" data-s="'+(n.isScript?1:0)+'" data-disabled="'+(disabled?1:0)+'" draggable="'+(depth>0?'true':'false')+'" style="'+style+'">');
   h.push('<span class="tree-arrow'+ac+'"></span>');
-  h.push('<img class="tree-icon" src="'+ASSET+'/'+esc(n.className)+'.png">');
+  h.push('<img class="tree-icon" src="'+ASSET+'/'+esc(n.className)+'.png"'+(disabled?' style="opacity:.45"':'')+'>');
   h.push('<span class="tree-name-group">');
   if(id===renameNodeId){
     h.push('<input class="tree-rename-input" type="text" value="'+esc(n.name)+'" data-id="'+id+'">');
   }else{
-    h.push('<span class="tree-name">'+esc(n.name)+'</span>');
+    h.push('<span class="tree-name"'+(disabled?' style="color:var(--vscode-disabledForeground,var(--vscode-descriptionForeground));opacity:.65"':'')+'>'+esc(n.name)+'</span>');
   }
   h.push('<button class="tree-add-btn">+</button>');
   h.push('</span></div>');

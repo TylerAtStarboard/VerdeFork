@@ -14,6 +14,7 @@ export type Node = {
 	className: string;
 	parentId: string | null;
 	children: string[];
+	disabled?: boolean;
 };
 
 export type Snapshot = {
@@ -56,6 +57,13 @@ export class RobloxExplorerProvider {
 
 	public getAllNodes(): Node[] {
 		return Array.from(this.nodesById.values());
+	}
+
+	public setNodeDisabled(id: string, disabled: boolean): void {
+		const node = this.nodesById.get(id);
+		if (!node || node.disabled === disabled) return;
+		node.disabled = disabled;
+		this.fireChange();
 	}
 
 	public getRootIds(): string[] {
@@ -157,7 +165,9 @@ export class RobloxExplorerProvider {
 				}
 				case "update_node": {
 					const node = this.nodesById.get(op.id);
-					if (node && op.name !== undefined) node.name = op.name;
+					if (!node) break;
+					if (op.name !== undefined) node.name = op.name;
+					if (op.disabled !== undefined) node.disabled = op.disabled;
 					break;
 				}
 				case "move_node": {

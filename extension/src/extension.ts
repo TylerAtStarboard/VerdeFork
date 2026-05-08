@@ -77,7 +77,24 @@ export async function activate(context: vscode.ExtensionContext) {
 	watcher.onDidDelete(() => sourcemapParser.loadSourcemaps());
 	context.subscriptions.push(watcher);
 
-	propertiesViewProvider = new PropertiesViewProvider(backend, context.extensionUri);
+	const syncScriptDisabledState = (nodeId: string, propertiesData: any) => {
+		const node = explorerProvider.getNodeById(nodeId);
+		if (!node || !isScriptClass(node.className)) return;
+
+		const properties = Array.isArray(propertiesData.properties) ? propertiesData.properties : [];
+		const enabledProperty = properties.find((property: any) => property.name === "Enabled");
+		if (typeof enabledProperty?.value === "boolean") {
+			explorerProvider.setNodeDisabled(nodeId, !enabledProperty.value);
+			return;
+		}
+
+		const disabledProperty = properties.find((property: any) => property.name === "Disabled");
+		if (typeof disabledProperty?.value === "boolean") {
+			explorerProvider.setNodeDisabled(nodeId, disabledProperty.value);
+		}
+	};
+
+	propertiesViewProvider = new PropertiesViewProvider(backend, context.extensionUri, syncScriptDisabledState);
 
 	context.subscriptions.push(
 		vscode.window.registerWebviewViewProvider(PropertiesViewProvider.viewType, propertiesViewProvider, {
@@ -86,6 +103,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	);
 
 	explorerViewProvider = new ExplorerViewProvider(context.extensionUri, explorerProvider, backend);
+	backend.setPropertyUpdateCallback(syncScriptDisabledState);
 
 	context.subscriptions.push(
 		vscode.window.registerWebviewViewProvider(ExplorerViewProvider.viewType, explorerViewProvider, {

@@ -269,6 +269,23 @@ local function _listenToChanges(client: Client, descendant: Instance)
 		)
 	end
 
+	if descendant:IsA("BaseScript") then
+		for _, propName in ipairs({ "Enabled", "Disabled" }) do
+			table.insert(
+				connections,
+				descendant:GetPropertyChangedSignal(propName):Connect(function()
+					local bs = descendant :: BaseScript
+					_pushOp(client, {
+						type = "update_node",
+						timestamp = tick(),
+						id = descendant:GetDebugId(0),
+						disabled = not bs.Enabled,
+					})
+				end)
+			)
+		end
+	end
+
 	table.insert(
 		connections,
 		descendant.AncestryChanged:Connect(function()

@@ -13,6 +13,7 @@ type Node = {
 	className: string,
 	parentId: string?,
 	children: { string },
+	disabled: boolean?,
 }
 
 type Snapshot = {
@@ -49,6 +50,10 @@ function SerializeDatamodel.serializeFull(): (Snapshot, { [string]: Instance })
 			parentId = parentId,
 			children = {},
 		}
+
+		if instance:IsA("BaseScript") then
+			node.disabled = not instance.Enabled
+		end
 
 		instanceMap[id] = instance
 
@@ -100,6 +105,10 @@ function SerializeDatamodel.serializeSubtree(instance: Instance): (string, { Nod
 			parentId = parentId,
 			children = {},
 		}
+
+		if inner:IsA("BaseScript") then
+			node.disabled = not inner.Enabled
+		end
 
 		table.insert(nodes, node)
 		nodeCount += 1

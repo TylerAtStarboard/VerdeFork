@@ -16,7 +16,11 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
 	private isUsingSeparatePanel: boolean = false;
 	private soundPollingInterval: NodeJS.Timeout | null = null;
 
-	constructor(backend: VerdeBackend, private readonly extensionUri: vscode.Uri) {
+	constructor(
+		backend: VerdeBackend,
+		private readonly extensionUri: vscode.Uri,
+		private readonly onPropertiesLoaded?: (nodeId: string, properties: any) => void,
+	) {
 		this.backend = backend;
 		this.backend.setPropertyUpdateCallback((nodeId: string, properties: any) => {
 			if (nodeId === this.currentNodeId) {
@@ -115,6 +119,7 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
 
 		try {
 			const propertiesData = this.normalizeTypesForWebview(await this.backend.getProperties(this.currentNodeId));
+			this.onPropertiesLoaded?.(this.currentNodeId, propertiesData);
 
 			this.webviewView.webview.postMessage({
 				type: "updateProperties",
@@ -129,6 +134,10 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
 
 
 	private updateProperties(properties: any): void {
+		if (this.currentNodeId) {
+			this.onPropertiesLoaded?.(this.currentNodeId, properties);
+		}
+
 		if (this.isUsingSeparatePanel && this.separatePanel) {
 			const normalized = this.normalizeTypesForWebview(properties);
 			this.separatePanel.webview.postMessage({
@@ -202,6 +211,11 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
 			switch (message.type) {
 				case "setProperty":
 					await this.backend.setProperty(this.currentNodeId, message.propertyName, message.propertyValue);
+					if (message.propertyName === "Enabled" || message.propertyName === "Disabled") {
+						this.onPropertiesLoaded?.(this.currentNodeId, {
+							properties: [{ name: message.propertyName, value: message.propertyValue }],
+						});
+					}
 					break;
 
 				case "addTag":
