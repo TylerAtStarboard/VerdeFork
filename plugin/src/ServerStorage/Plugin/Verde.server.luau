@@ -38,4 +38,4 @@ plugin.Unloading:Connect(function()
 	SoundPlayer.cleanup()
 end)
 
-StateController.SwitchState("Disconnected")
+StateController.SwitchState("Connecting")
