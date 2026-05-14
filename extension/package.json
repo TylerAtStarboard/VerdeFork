@@ -227,6 +227,12 @@
         "key": "ctrl+y",
         "mac": "cmd+shift+z",
         "when": "focusedView == verde.view || focusedView == verde.properties"
+      },
+      {
+        "command": "verde.redo",
+        "key": "ctrl+shift+z",
+        "mac": "cmd+shift+z",
+        "when": "focusedView == verde.view || focusedView == verde.properties"
       }
     ],
     "menus": {
