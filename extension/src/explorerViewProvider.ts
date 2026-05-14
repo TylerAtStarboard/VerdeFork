@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import { RobloxExplorerProvider, Node } from "./robloxExplorerProvider";
 import { VerdeBackend } from "./backend";
-import { ROBLOX_CLASS_NAMES } from "./robloxClasses";
+import { getClassNames } from "./robloxClasses";
 import { isScriptClass } from "./utils";
 import { getThemeCssBlock, getThemeScriptBlock, getThemeStyleAttribute } from "./webviewTheme";
 
@@ -45,6 +45,10 @@ export class ExplorerViewProvider implements vscode.WebviewViewProvider {
 
   public startRename(nodeId: string): void {
     this.post({ type: "startRename", nodeId });
+  }
+
+  public postClassNames(): void {
+    this.post({ type: "updateClasses", classes: getClassNames() });
   }
 
   public reveal(node: Node): void {
@@ -302,7 +306,7 @@ ${themeScript}
 <script>
 (function(){
 var ASSET=${JSON.stringify(assetBase)};
-var CLASSES=${JSON.stringify(ROBLOX_CLASS_NAMES)};
+var CLASSES=${JSON.stringify(getClassNames())};
 var vscode=acquireVsCodeApi();
 
 var nodes={},rootIds=[],selectedIds=[];
@@ -355,6 +359,16 @@ window.addEventListener('message',function(e){
       renameNodeId=m.nodeId||null;
       renderTree();
       afterRenameInputMount();break;
+    case 'updateClasses':
+      if(Array.isArray(m.classes)&&m.classes.length){
+        CLASSES=m.classes;
+        if(!qaEl.classList.contains('hidden')){
+          var qq=qaSearchEl.value.trim().toLowerCase();
+          qaFiltered=qq?CLASSES.filter(function(c){return c.toLowerCase().indexOf(qq)>=0}):CLASSES;
+          qaIdx=0;renderQA();
+        }
+      }
+      break;
   }
 });
 

@@ -3,7 +3,7 @@ import { RobloxExplorerProvider, Node } from "./robloxExplorerProvider";
 import { ExplorerViewProvider } from "./explorerViewProvider";
 import { VerdeBackend } from "./backend";
 import { PropertiesViewProvider } from "./propertiesViewProvider";
-import { ROBLOX_CLASS_NAMES } from "./robloxClasses";
+import { getClassNames, initClassNames } from "./robloxClasses";
 import { SourcemapParser } from "./sourcemapParser";
 import { isScriptClass } from "./utils";
 import { InstanceHistory, HistoryEntry } from "./instanceHistory";
@@ -110,6 +110,8 @@ export async function activate(context: vscode.ExtensionContext) {
 			webviewOptions: { retainContextWhenHidden: true },
 		})
 	);
+
+	void initClassNames(context, () => explorerViewProvider.postClassNames());
 
 	context.subscriptions.push(
 		vscode.window.onDidChangeActiveColorTheme(() => {
@@ -555,7 +557,7 @@ export async function activate(context: vscode.ExtensionContext) {
 				return;
 			}
 
-			const quickPickItems = ROBLOX_CLASS_NAMES.map(className => ({
+			const quickPickItems = getClassNames().map(className => ({
 				label: className,
 				iconPath: vscode.Uri.joinPath(context.extensionUri, "assets", `${className}.png`)
 			}));
