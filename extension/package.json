@@ -51,7 +51,7 @@
         },
         "verde.coloredSelection": {
           "type": "boolean",
-          "default": false,
+          "default": true,
           "description": "Use a custom color for selected items in the explorer tree"
         },
         "verde.coloredSelectionColor": {
