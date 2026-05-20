@@ -314,6 +314,8 @@ var searchFilter='';
 var qaParentId=null,qaFiltered=CLASSES,qaIdx=0,qaOutsideClick=null;
 var ctxNodeId=null;
 var renameNodeId=null;
+var SLOW_CLICK_RENAME_DELAY=600;
+var slowClickTimer=null,slowClickId=null;
 
 var expandedIds=new Set();
 var dragSourceId=null;
@@ -375,11 +377,22 @@ window.addEventListener('message',function(e){
 
 /* ---- search ---- */
 var searchDebounce=null;
+function expandSearchMatches(){
+  visCache={};
+  function walk(id){
+    var n=nodes[id];if(!n)return;
+    if(!isVis(id))return;
+    if(n.children.length>0)expandedIds.add(id);
+    for(var i=0;i<n.children.length;i++)walk(n.children[i]);
+  }
+  for(var i=0;i<rootIds.length;i++)walk(rootIds[i]);
+  saveExp();
+}
 searchEl.addEventListener('input',function(){
   var raw=searchEl.value.trim().toLowerCase();
   if(searchDebounce)clearTimeout(searchDebounce);
   if(!raw){searchFilter='';renderTree();return}
-  searchDebounce=setTimeout(function(){searchFilter=raw;renderTree()},50);
+  searchDebounce=setTimeout(function(){searchFilter=raw;expandSearchMatches();renderTree()},50);
 });
 searchEl.addEventListener('keydown',function(e){
   if(e.key==='Escape'){searchEl.value='';searchFilter='';renderTree();treeEl.focus();e.preventDefault()}
@@ -438,7 +451,7 @@ function buildFlatRows(){
     if(searchFilter&&!isVis(id))return;
     var n=nodes[id];if(!n)return;
     var has=n.children.length>0;
-    var exp=searchFilter?has:expandedIds.has(id);
+    var exp=expandedIds.has(id);
     flatRows.push({id:id,depth:depth});
     if(exp)for(var i=0;i<n.children.length;i++)walk(n.children[i],depth+1);
   }
@@ -477,7 +490,7 @@ function renderViewport(){
 function buildRowHtml(id,depth,h){
   var n=nodes[id];if(!n)return;
   var has=n.children.length>0;
-  var exp=searchFilter?has:expandedIds.has(id);
+  var exp=expandedIds.has(id);
   var sel=selectedIds.indexOf(id)>=0;
   var pad=depth*INDENT;
   var ac=has?(exp?' expanded':''):' leaf';
@@ -535,28 +548,47 @@ function scrollTo(id){
 /* ---- tree events ---- */
 treeEl.addEventListener('click',function(e){
   treeEl.focus();
+  if(slowClickTimer){clearTimeout(slowClickTimer);slowClickTimer=null}
   var row=e.target.closest('.tree-row');
-  if(!row){selectedIds=[];updateSelVis();vscode.postMessage({type:'selectionChanged',nodeIds:[]});return}
+  if(!row){slowClickId=null;selectedIds=[];updateSelVis();vscode.postMessage({type:'selectionChanged',nodeIds:[]});return}
   var id=row.dataset.id;
   var arrow=e.target.closest('.tree-arrow');
   if(arrow&&!arrow.classList.contains('leaf')){
+    slowClickId=null;
     if(expandedIds.has(id))expandedIds.delete(id);else expandedIds.add(id);
     saveExp();renderTree();return;
   }
-  if(e.target.closest('.tree-add-btn')){openQA(id,row);return}
-  if(e.ctrlKey||e.metaKey){var i=selectedIds.indexOf(id);if(i>=0)selectedIds.splice(i,1);else selectedIds.push(id)}
-  else selectedIds=[id];
+  if(e.target.closest('.tree-add-btn')){slowClickId=null;openQA(id,row);return}
+  if(e.ctrlKey||e.metaKey){slowClickId=null;var i=selectedIds.indexOf(id);if(i>=0)selectedIds.splice(i,1);else selectedIds.push(id)}
+  else{
+    var wasOnlySel=selectedIds.length===1&&selectedIds[0]===id;
+    selectedIds=[id];
+    if(wasOnlySel&&slowClickId===id&&!renameNodeId){
+      slowClickTimer=setTimeout(function(){slowClickTimer=null;slowClickId=null;renameNodeId=id;renderTree();afterRenameInputMount()},SLOW_CLICK_RENAME_DELAY);
+    }
+    slowClickId=id;
+  }
   updateSelVis();
   vscode.postMessage({type:'selectionChanged',nodeIds:selectedIds.slice()});
 });
 
 treeEl.addEventListener('dblclick',function(e){
+  if(slowClickTimer){clearTimeout(slowClickTimer);slowClickTimer=null}
+  slowClickId=null;
   var row=e.target.closest('.tree-row');
   if(!row||e.target.closest('.tree-arrow')||e.target.closest('.tree-add-btn'))return;
-  if(row.dataset.s==='1')vscode.postMessage({type:'scriptActivated',nodeId:row.dataset.id});
+  var id=row.dataset.id;
+  if(row.dataset.s==='1'){vscode.postMessage({type:'scriptActivated',nodeId:id});return}
+  var node=nodes[id];
+  if(node&&node.children.length>0){
+    if(expandedIds.has(id))expandedIds.delete(id);else expandedIds.add(id);
+    saveExp();renderTree();
+  }
 });
 
 treeEl.addEventListener('contextmenu',function(e){
+  if(slowClickTimer){clearTimeout(slowClickTimer);slowClickTimer=null}
+  slowClickId=null;
   e.preventDefault();
   var row=e.target.closest('.tree-row');if(!row)return;
   var id=row.dataset.id;
@@ -567,6 +599,8 @@ treeEl.addEventListener('contextmenu',function(e){
 /* ---- drag and drop ---- */
 function clearDragOver(){treeEl.querySelectorAll('.tree-row').forEach(function(r){r.classList.remove('drag-over')})}
 treeEl.addEventListener('dragstart',function(e){
+  if(slowClickTimer){clearTimeout(slowClickTimer);slowClickTimer=null}
+  slowClickId=null;
   if(e.target.closest('.tree-arrow,.tree-add-btn,.tree-rename-input')){e.preventDefault();return}
   var row=e.target.closest('.tree-row');if(!row)return;
   dragSourceId=row.dataset.id;
