@@ -83,11 +83,17 @@ export class ExplorerViewProvider implements vscode.WebviewViewProvider {
     };
     webviewView.webview.onDidReceiveMessage(m => this.onMessage(m));
     webviewView.onDidDispose(() => { this.webviewView = undefined; });
+    vscode.workspace.onDidChangeConfiguration(e => {
+      if (e.affectsConfiguration("verde.coloredSelection") || e.affectsConfiguration("verde.coloredSelectionColor")) {
+        this.pushSelectionColor();
+      }
+    });
     const assetBase = webviewView.webview.asWebviewUri(
       vscode.Uri.joinPath(this.extensionUri, "assets")
     ).toString();
     webviewView.webview.html = this.buildHtml(webviewView.webview, assetBase);
     this.pushTree();
+    this.pushSelectionColor();
   }
 
   public refreshWebviewHtml(): void {
@@ -101,6 +107,15 @@ export class ExplorerViewProvider implements vscode.WebviewViewProvider {
 
   private post(msg: unknown): void {
     this.webviewView?.webview.postMessage(msg);
+  }
+
+  private pushSelectionColor(): void {
+    const cfg = vscode.workspace.getConfiguration("verde");
+    this.post({
+      type: "updateSelectionColor",
+      enabled: cfg.get<boolean>("coloredSelection", false),
+      color: cfg.get<string>("coloredSelectionColor", "#264f78"),
+    });
   }
 
   private pushTree(): void {
@@ -289,6 +304,7 @@ body{display:flex;flex-direction:column}
 .qa-item:not(.selected):hover{background:var(--vscode-list-hoverBackground)}
 .qa-icon{width:16px;height:16px;margin-right:8px;image-rendering:pixelated;flex-shrink:0}
 </style>
+<style id="sel-override"></style>
 ${themeScript}
 </head>
 <body>
@@ -314,8 +330,10 @@ var searchFilter='';
 var qaParentId=null,qaFiltered=CLASSES,qaIdx=0,qaOutsideClick=null;
 var ctxNodeId=null;
 var renameNodeId=null;
-var SLOW_CLICK_RENAME_DELAY=600;
-var slowClickTimer=null,slowClickId=null;
+var SLOW_CLICK_RENAME_DELAY=800;
+var DBLCLICK_THRESHOLD=400;
+var slowClickTimer=null;
+var lastClickTime=0,lastClickId=null;
 
 var expandedIds=new Set();
 var dragSourceId=null;
@@ -370,6 +388,14 @@ window.addEventListener('message',function(e){
           qaFiltered=qq?CLASSES.filter(function(c){return c.toLowerCase().indexOf(qq)>=0}):CLASSES;
           qaIdx=0;renderQA();
         }
+      }
+      break;
+    case 'updateSelectionColor':
+      var so=document.getElementById('sel-override');
+      if(so){
+        if(m.enabled&&m.color){
+          so.textContent='.tree-row.selected{background:'+m.color+' !important}#tree:focus-within .tree-row.selected{background:'+m.color+' !important}';
+        }else{so.textContent=''}
       }
       break;
   }
@@ -550,45 +576,46 @@ treeEl.addEventListener('click',function(e){
   treeEl.focus();
   if(slowClickTimer){clearTimeout(slowClickTimer);slowClickTimer=null}
   var row=e.target.closest('.tree-row');
-  if(!row){slowClickId=null;selectedIds=[];updateSelVis();vscode.postMessage({type:'selectionChanged',nodeIds:[]});return}
+  if(!row){lastClickId=null;selectedIds=[];updateSelVis();vscode.postMessage({type:'selectionChanged',nodeIds:[]});return}
   var id=row.dataset.id;
   var arrow=e.target.closest('.tree-arrow');
   if(arrow&&!arrow.classList.contains('leaf')){
-    slowClickId=null;
+    lastClickId=null;
     if(expandedIds.has(id))expandedIds.delete(id);else expandedIds.add(id);
     saveExp();renderTree();return;
   }
-  if(e.target.closest('.tree-add-btn')){slowClickId=null;openQA(id,row);return}
-  if(e.ctrlKey||e.metaKey){slowClickId=null;var i=selectedIds.indexOf(id);if(i>=0)selectedIds.splice(i,1);else selectedIds.push(id)}
+  if(e.target.closest('.tree-add-btn')){lastClickId=null;openQA(id,row);return}
+  var now=Date.now();
+  var isDbl=id===lastClickId&&now-lastClickTime<DBLCLICK_THRESHOLD&&!e.ctrlKey&&!e.metaKey;
+  lastClickTime=now;
+  lastClickId=id;
+  if(isDbl){
+    lastClickId=null;
+    if(row.dataset.s==='1'){vscode.postMessage({type:'scriptActivated',nodeId:id});return}
+    var node=nodes[id];
+    if(node&&node.children.length>0){
+      if(expandedIds.has(id))expandedIds.delete(id);else expandedIds.add(id);
+      saveExp();renderTree();
+    }
+    return;
+  }
+  if(e.ctrlKey||e.metaKey){var i=selectedIds.indexOf(id);if(i>=0)selectedIds.splice(i,1);else selectedIds.push(id)}
   else{
     var wasOnlySel=selectedIds.length===1&&selectedIds[0]===id;
     selectedIds=[id];
-    if(wasOnlySel&&slowClickId===id&&!renameNodeId){
-      slowClickTimer=setTimeout(function(){slowClickTimer=null;slowClickId=null;renameNodeId=id;renderTree();afterRenameInputMount()},SLOW_CLICK_RENAME_DELAY);
+    if(wasOnlySel&&!renameNodeId){
+      slowClickTimer=setTimeout(function(){slowClickTimer=null;renameNodeId=id;renderTree();afterRenameInputMount()},SLOW_CLICK_RENAME_DELAY);
     }
-    slowClickId=id;
   }
   updateSelVis();
   vscode.postMessage({type:'selectionChanged',nodeIds:selectedIds.slice()});
 });
 
-treeEl.addEventListener('dblclick',function(e){
-  if(slowClickTimer){clearTimeout(slowClickTimer);slowClickTimer=null}
-  slowClickId=null;
-  var row=e.target.closest('.tree-row');
-  if(!row||e.target.closest('.tree-arrow')||e.target.closest('.tree-add-btn'))return;
-  var id=row.dataset.id;
-  if(row.dataset.s==='1'){vscode.postMessage({type:'scriptActivated',nodeId:id});return}
-  var node=nodes[id];
-  if(node&&node.children.length>0){
-    if(expandedIds.has(id))expandedIds.delete(id);else expandedIds.add(id);
-    saveExp();renderTree();
-  }
-});
+treeEl.addEventListener('dblclick',function(e){e.preventDefault()});
 
 treeEl.addEventListener('contextmenu',function(e){
   if(slowClickTimer){clearTimeout(slowClickTimer);slowClickTimer=null}
-  slowClickId=null;
+  lastClickId=null;
   e.preventDefault();
   var row=e.target.closest('.tree-row');if(!row)return;
   var id=row.dataset.id;
@@ -600,7 +627,7 @@ treeEl.addEventListener('contextmenu',function(e){
 function clearDragOver(){treeEl.querySelectorAll('.tree-row').forEach(function(r){r.classList.remove('drag-over')})}
 treeEl.addEventListener('dragstart',function(e){
   if(slowClickTimer){clearTimeout(slowClickTimer);slowClickTimer=null}
-  slowClickId=null;
+  lastClickId=null;
   if(e.target.closest('.tree-arrow,.tree-add-btn,.tree-rename-input')){e.preventDefault();return}
   var row=e.target.closest('.tree-row');if(!row)return;
   dragSourceId=row.dataset.id;
