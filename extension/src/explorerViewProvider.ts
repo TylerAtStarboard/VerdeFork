@@ -51,6 +51,10 @@ export class ExplorerViewProvider implements vscode.WebviewViewProvider {
     this.post({ type: "updateClasses", classes: getClassNames() });
   }
 
+  public collapseAll(): void {
+    this.post({ type: "collapseAll" });
+  }
+
   public reveal(node: Node): void {
     const ancestors: string[] = [];
     let cur: Node | undefined = node;
@@ -336,11 +340,13 @@ var slowClickTimer=null;
 var lastClickTime=0,lastClickId=null;
 
 var expandedIds=new Set();
+var searchExpandedIds=new Set();
+var savedExpandedIds=null;
 var dragSourceId=null;
 var saved=vscode.getState();
 if(saved&&Array.isArray(saved.exp))expandedIds=new Set(saved.exp);
-function saveExp(){vscode.setState({exp:[...expandedIds]})}
-
+function activeExp(){return searchFilter?searchExpandedIds:expandedIds}
+function saveExp(){if(!searchFilter)vscode.setState({exp:[...expandedIds]})}
 function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
 
 var treeEl=document.getElementById('tree');
@@ -398,6 +404,14 @@ window.addEventListener('message',function(e){
         }else{so.textContent=''}
       }
       break;
+    case 'collapseAll':
+      expandedIds.clear();
+      searchExpandedIds.clear();
+      savedExpandedIds=null;
+      for(var i=0;i<selectedIds.length;i++)expandAncestors(selectedIds[i]);
+      saveExp();renderTree();
+      if(selectedIds.length>0)requestAnimationFrame(function(){scrollTo(selectedIds[0])});
+      break;
   }
 });
 
@@ -405,23 +419,41 @@ window.addEventListener('message',function(e){
 var searchDebounce=null;
 function expandSearchMatches(){
   visCache={};
+  searchExpandedIds=new Set(expandedIds);
   function walk(id){
     var n=nodes[id];if(!n)return;
     if(!isVis(id))return;
-    if(n.children.length>0)expandedIds.add(id);
+    if(n.children.length>0)searchExpandedIds.add(id);
     for(var i=0;i<n.children.length;i++)walk(n.children[i]);
   }
   for(var i=0;i<rootIds.length;i++)walk(rootIds[i]);
-  saveExp();
+}
+function expandAncestors(id){
+  var n=nodes[id];if(!n)return;
+  for(var k in nodes){
+    var p=nodes[k];
+    if(p.children.indexOf(id)>=0){expandedIds.add(k);expandAncestors(k);return}
+  }
 }
 searchEl.addEventListener('input',function(){
   var raw=searchEl.value.trim().toLowerCase();
   if(searchDebounce)clearTimeout(searchDebounce);
-  if(!raw){searchFilter='';renderTree();return}
+  if(!raw){
+    if(savedExpandedIds){expandedIds=savedExpandedIds;savedExpandedIds=null}
+    for(var i=0;i<selectedIds.length;i++)expandAncestors(selectedIds[i]);
+    saveExp();
+    searchFilter='';renderTree();return;
+  }
+  if(!savedExpandedIds)savedExpandedIds=new Set(expandedIds);
   searchDebounce=setTimeout(function(){searchFilter=raw;expandSearchMatches();renderTree()},50);
 });
 searchEl.addEventListener('keydown',function(e){
-  if(e.key==='Escape'){searchEl.value='';searchFilter='';renderTree();treeEl.focus();e.preventDefault()}
+  if(e.key==='Escape'){
+    if(savedExpandedIds){expandedIds=savedExpandedIds;savedExpandedIds=null}
+    for(var i=0;i<selectedIds.length;i++)expandAncestors(selectedIds[i]);
+    saveExp();
+    searchEl.value='';searchFilter='';renderTree();treeEl.focus();e.preventDefault();
+  }
 });
 
 var visCache={};
@@ -477,7 +509,7 @@ function buildFlatRows(){
     if(searchFilter&&!isVis(id))return;
     var n=nodes[id];if(!n)return;
     var has=n.children.length>0;
-    var exp=expandedIds.has(id);
+    var exp=activeExp().has(id);
     flatRows.push({id:id,depth:depth});
     if(exp)for(var i=0;i<n.children.length;i++)walk(n.children[i],depth+1);
   }
@@ -516,7 +548,7 @@ function renderViewport(){
 function buildRowHtml(id,depth,h){
   var n=nodes[id];if(!n)return;
   var has=n.children.length>0;
-  var exp=expandedIds.has(id);
+  var exp=activeExp().has(id);
   var sel=selectedIds.indexOf(id)>=0;
   var pad=depth*INDENT;
   var ac=has?(exp?' expanded':''):' leaf';
@@ -581,7 +613,7 @@ treeEl.addEventListener('click',function(e){
   var arrow=e.target.closest('.tree-arrow');
   if(arrow&&!arrow.classList.contains('leaf')){
     lastClickId=null;
-    if(expandedIds.has(id))expandedIds.delete(id);else expandedIds.add(id);
+    var ae=activeExp();if(ae.has(id))ae.delete(id);else ae.add(id);
     saveExp();renderTree();return;
   }
   if(e.target.closest('.tree-add-btn')){lastClickId=null;openQA(id,row);return}
@@ -594,7 +626,7 @@ treeEl.addEventListener('click',function(e){
     if(row.dataset.s==='1'){vscode.postMessage({type:'scriptActivated',nodeId:id});return}
     var node=nodes[id];
     if(node&&node.children.length>0){
-      if(expandedIds.has(id))expandedIds.delete(id);else expandedIds.add(id);
+      var ae=activeExp();if(ae.has(id))ae.delete(id);else ae.add(id);
       saveExp();renderTree();
     }
     return;
