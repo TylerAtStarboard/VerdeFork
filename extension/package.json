@@ -51,13 +51,13 @@
         },
         "verde.coloredSelection": {
           "type": "boolean",
-          "default": true,
+          "default": false,
           "description": "Use a custom color for selected items in the explorer tree"
         },
         "verde.coloredSelectionColor": {
           "type": "string",
           "default": "#264f78",
-          "description": "Background color for selected items when Colored Selection is true"
+          "description": "Background color for selected items when Colored Selection is enabled"
         }
       }
     },
@@ -89,6 +89,12 @@
         "command": "verde.refreshExplorer",
         "title": "Refresh",
         "icon": "$(refresh)",
+        "category": "Verde"
+      },
+      {
+        "command": "verde.collapseAll",
+        "title": "Collapse All",
+        "icon": "$(collapse-all)",
         "category": "Verde"
       },
       {
@@ -249,6 +255,11 @@
       "view/title": [
         {
           "command": "verde.refreshExplorer",
+          "when": "view == verde.view",
+          "group": "navigation"
+        },
+        {
+          "command": "verde.collapseAll",
           "when": "view == verde.view",
           "group": "navigation"
         }
